@@ -36,7 +36,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   },
 }));
 
-
 /**
  * @swagger
  * /:
@@ -94,30 +93,55 @@ app.get('/health', (req, res) => {
 app.use('/api/users', userRoutes);
 app.use('/api/payments', paymentRoutes);
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('❌ Error:', err);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal server error',
+  });
+});
+
 // Connect to database and start server
 async function start() {
   try {
     console.log('🚀 Starting application...');
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('Port:', PORT);
     
     // Connect to MongoDB
     await mongoDatabase.connect();
     
-    const server = app.listen(PORT, () => {
-      console.log(`✅ Server running on http://localhost:${PORT}`);
-    });
-
-    // Graceful shutdown
-    process.on('SIGTERM', async () => {
-      console.log('🛑 SIGTERM received, shutting down gracefully...');
-      server.close(async () => {
-        await mongoDatabase.disconnect();
-        process.exit(0);
+    // Only use app.listen in local development
+    if (process.env.NODE_ENV !== 'production') {
+      const server = app.listen(PORT, () => {
+        console.log(`✅ Server running on http://localhost:${PORT}`);
       });
-    });
+
+      // Graceful shutdown
+      process.on('SIGTERM', async () => {
+        console.log('🛑 SIGTERM received, shutting down gracefully...');
+        server.close(async () => {
+          await mongoDatabase.disconnect();
+          process.exit(0);
+        });
+      });
+    } else {
+      console.log('✅ Application ready for Vercel');
+    }
   } catch (error) {
-    console.error('❌ Failed to start application:', error);
-    process.exit(1);
+    console.error('❌ Failed to start application:', error.message);
+    console.error('Stack:', error.stack);
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
   }
 }
 
-start();
+// Start on local, export for Vercel
+if (process.env.NODE_ENV !== 'production') {
+  start();
+}
+
+// Export app for Vercel
+export default app;

@@ -36,6 +36,32 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   },
 }));
 
+
+/**
+ * @swagger
+ * /:
+ *   get:
+ *     summary: Welcome endpoint
+ *     tags:
+ *       - API Info
+ *     responses:
+ *       200:
+ *         description: Welcome message
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Welcome to 41Sounds Backend API
+ */
+
+// Welcome route
+app.get('/', (req, res) => {
+  res.json({ message: 'Welcome to 41Sounds Backend API' });
+});
+
 /**
  * @swagger
  * /health:

@@ -20,10 +20,30 @@ export class MongoDatabase {
         throw new Error('MONGODB_URI environment variable is not set');
       }
 
-      await mongoose.connect(uri);
+      console.log('🔄 Attempting to connect to MongoDB...');
+      console.log('URI:', uri.replace(/:[^:]*@/, ':****@')); // Hide password
+
+      const options = {
+        maxPoolSize: 10,
+        minPoolSize: 2,
+        serverSelectionTimeoutMS: 15000, // Increased from default
+        socketTimeoutMS: 45000,
+        retryWrites: true,
+        retryReads: true,
+        connectTimeoutMS: 15000,
+      };
+
+      await mongoose.connect(uri, options);
       console.log('✅ Connected to MongoDB Atlas');
+      
+      // Log connection info
+      console.log('DB Name:', mongoose.connection.name);
+      console.log('Host:', mongoose.connection.host);
+      
     } catch (error) {
-      console.error('❌ MongoDB connection error:', error);
+      console.error('❌ MongoDB connection error:', error.message);
+      console.error('Code:', error.code);
+      console.error('Full Error:', error);
       throw error;
     }
   }

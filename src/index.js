@@ -17,6 +17,7 @@ const corsOptions = {
   origin: [
     'http://localhost:3000',
     'http://localhost:3001',
+    'https://dev.41sounds.com',
     process.env.FRONTEND_URL,
   ].filter(Boolean),
   credentials: true,

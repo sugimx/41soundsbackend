@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { Payment } from '../models/Payment.js';
+import { User } from '../../user/models/User.js';
 import { logger } from '../../../shared/logger/logger.js';
+import { emailService } from '../../../shared/email/emailService.js';
+import { whatsappService } from '../../../shared/whatsapp/whatsappService.js';
 
 // Lazy-initialized Cashfree client
 let cashfreeClient = null;
@@ -88,7 +91,7 @@ export class PaymentService {
             customer_phone: metadata.phone || '9999999999',
           },
           order_meta: {
-            return_url: process.env.PAYMENT_RETURN_URL || 'http://localhost:5000/api/payments/success',
+            return_url: process.env.PAYMENT_RETURN_URL || 'https://www.41sounds.com/success',
             notify_url: process.env.PAYMENT_WEBHOOK_URL || 'http://localhost:5000/api/payments/webhook',
           },
           order_note: description,
@@ -244,8 +247,18 @@ export class PaymentService {
   async processWebhook(webhookData) {
     try {
       const { data } = webhookData;
-      const orderId = data.order_id;
+      const order = data.order;
 
+      // Extract order ID - handle both nested and flat structures
+      const orderId = order?.order_id || data?.order_id;
+      const orderStatus = order?.order_status || data?.order_status;
+
+      if (!orderId) {
+        logger.error('Webhook received with missing order_id', { data });
+        return { success: false, message: 'Missing order_id in webhook' };
+      }
+
+      // Find payment by cashfree order ID
       const payment = await Payment.findOne({ cashfreeOrderId: orderId });
 
       if (!payment) {
@@ -254,13 +267,11 @@ export class PaymentService {
       }
 
       // Update payment status based on webhook event
-      const orderStatus = data.order_status;
-
       if (orderStatus === 'PAID') {
         payment.status = 'SUCCESS';
-        payment.paymentMethod = data.payment_method || 'UNKNOWN';
-        payment.cashfreePaymentId = data.cf_payment_id;
-        payment.transactionId = data.payment_id;
+        payment.paymentMethod = order?.payment_method || data?.payment_method || 'UNKNOWN';
+        payment.cashfreePaymentId = order?.cf_payment_id || data?.cf_payment_id;
+        payment.transactionId = order?.payment_id || data?.payment_id;
         payment.completedAt = new Date();
         logger.info(`Payment confirmed via webhook: ${orderId}`);
       } else if (['EXPIRED', 'CANCELLED'].includes(orderStatus)) {
@@ -276,6 +287,48 @@ export class PaymentService {
       }
 
       await payment.save();
+
+      // Send confirmation email and WhatsApp message if payment is successful
+      if (orderStatus === 'PAID') {
+        try {
+          const user = await User.findById(payment.userId);
+          
+          if (user) {
+            const paymentDetails = {
+              orderId: payment.orderId,
+              amount: payment.amount,
+              description: payment.description,
+              paymentMethod: payment.paymentMethod,
+              transactionId: payment.transactionId,
+              cashfreePaymentId: payment.cashfreePaymentId,
+              completedAt: payment.completedAt,
+            };
+
+            // Send email confirmation
+            if (user.email) {
+              await emailService.sendPaymentConfirmation(user.email, user.fullName, paymentDetails);
+            }
+
+            // Send WhatsApp confirmation
+            if (user.mobile) {
+              await whatsappService.sendPaymentConfirmation(user.mobile, user.fullName, paymentDetails);
+            }
+          } else {
+            logger.warn('Unable to send confirmations - user not found', { 
+              userId: payment.userId,
+              orderId,
+            });
+          }
+        } catch (confirmationError) {
+          logger.error('Error sending payment confirmations', {
+            error: confirmationError.message,
+            orderId,
+            userId: payment.userId,
+          });
+          // Don't throw - notification sending failure shouldn't block webhook processing
+        }
+      }
+
       return { success: true, payment };
     } catch (error) {
       logger.error('Failed to process webhook', { error: error.message });

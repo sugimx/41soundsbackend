@@ -7,6 +7,7 @@ import path from 'path';
 import { mongoDatabase } from './shared/database/mongo.js';
 import userRoutes from './modules/user/routes/userRoutes.js';
 import paymentRoutes from './modules/payment/routes/paymentRoutes.js';
+import oauthRoutes from './modules/oauth/routes/oauthRoutes.js';
 import { swaggerSpec } from './core/swagger/swaggerConfig.js';
 
 // Get the directory name in ES modules
@@ -106,26 +107,26 @@ app.get('/health', (req, res) => {
 let mongoConnected = false;
 
 app.use('/api', async (req, res, next) => {
-  if (!mongoConnected) {
-    try {
-      console.log('🔄 Initializing MongoDB connection...');
+  try {
+    if (!mongoConnected) {
       await mongoDatabase.connect();
       mongoConnected = true;
       console.log('✅ MongoDB connected via middleware');
-    } catch (error) {
-      console.error('❌ MongoDB connection failed:', error.message);
-      return res.status(503).json({
-        success: false,
-        message: 'Database connection failed. Please try again later.',
-      });
     }
+    next();
+  } catch (error) {
+    console.error('❌ MongoDB connection failed:', error.message);
+    return res.status(503).json({
+      success: false,
+      message: 'Database connection failed. Please try again later.',
+    });
   }
-  next();
 });
 
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/oauth', oauthRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

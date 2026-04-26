@@ -40,6 +40,11 @@ const paymentSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
+    paymentSessionId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
     cashfreePaymentId: {
       type: String,
       unique: true,

@@ -41,7 +41,10 @@ export class PaymentController {
 
       const payment = await paymentService.createPayment(userId, amountInPaise, description, metadata);
 
-      res.status(201).json(payment);
+      res.status(201).json({
+        success: true,
+        data: payment.payment,
+      });
     } catch (error) {
       logger.error('Initiate payment error', { error: error.message, userId: req.userId });
       res.status(500).json({

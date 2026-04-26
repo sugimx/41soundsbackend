@@ -2,20 +2,52 @@ import axios from 'axios';
 import { Payment } from '../models/Payment.js';
 import { logger } from '../../../shared/logger/logger.js';
 
-// Initialize Cashfree SDK configuration
-const CASHFREE_MODE = process.env.CASHFREE_MODE || 'SANDBOX';
-const BASE_URL = CASHFREE_MODE === 'SANDBOX' 
-  ? 'https://sandbox.cashfree.com/pg'
-  : 'https://api.cashfree.com/pg';
+// Lazy-initialized Cashfree client
+let cashfreeClient = null;
 
-const cashfreeClient = axios.create({
-  baseURL: BASE_URL,
-  headers: {
-    'X-Client-Id': process.env.CASHFREE_APP_ID,
-    'X-Client-Secret': process.env.CASHFREE_APP_SECRET,
-    'Content-Type': 'application/json',
-  },
-});
+function initializeCashfreeClient() {
+  if (cashfreeClient) return cashfreeClient;
+
+  const CASHFREE_MODE = process.env.CASHFREE_MODE || 'SANDBOX';
+  const BASE_URL = CASHFREE_MODE === 'SANDBOX' 
+    ? 'https://sandbox.cashfree.com/pg'
+    : 'https://api.cashfree.com/pg';
+
+  // Log credentials for debugging
+  console.log('[DEBUG] Initializing Cashfree Client:', {
+    mode: CASHFREE_MODE,
+    baseUrl: BASE_URL,
+    appIdExists: !!process.env.CASHFREE_APP_ID,
+    appSecretExists: !!process.env.CASHFREE_APP_SECRET,
+    appId: process.env.CASHFREE_APP_ID ? process.env.CASHFREE_APP_ID.substring(0, 15) + '...' : 'MISSING',
+  });
+
+  cashfreeClient = axios.create({
+    baseURL: BASE_URL,
+    headers: {
+      'X-API-Version': '2023-08-01',
+      'X-Client-Id': process.env.CASHFREE_APP_ID,
+      'X-Client-Secret': process.env.CASHFREE_APP_SECRET,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  // Add response interceptor for debugging
+  cashfreeClient.interceptors.response.use(
+    response => response,
+    error => {
+      logger.error('Cashfree API Error Response:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers,
+      });
+      return Promise.reject(error);
+    }
+  );
+
+  return cashfreeClient;
+}
 
 export class PaymentService {
   /**
@@ -42,8 +74,11 @@ export class PaymentService {
       });
 
       try {
+        // Initialize Cashfree client on first use
+        const client = initializeCashfreeClient();
+        
         // Create order with Cashfree API
-        const cashfreeResponse = await cashfreeClient.post('/orders', {
+        const cashfreeResponse = await client.post('/orders', {
           order_id: orderId,
           order_amount: amount / 100, // Amount in rupees
           order_currency: 'INR',
@@ -65,15 +100,23 @@ export class PaymentService {
 
         // Update payment with Cashfree order details
         payment.cashfreeOrderId = cashfreeResponse.data.order_id;
+        payment.paymentSessionId = cashfreeResponse.data.payment_session_id;
         payment.paymentLink = cashfreeResponse.data.payment_link;
         await payment.save();
 
         logger.info(`Payment order created: ${orderId}`, { 
           orderId, 
-          cashfreeOrderId: cashfreeResponse.data.order_id 
+          cashfreeOrderId: cashfreeResponse.data.order_id,
+          paymentSessionId: cashfreeResponse.data.payment_session_id
         });
       } catch (cashfreeError) {
-        logger.warn(`Cashfree API error: ${cashfreeError.message}`, { orderId });
+        const errorDetails = {
+          message: cashfreeError.message,
+          status: cashfreeError.response?.status,
+          data: cashfreeError.response?.data,
+          orderId,
+        };
+        logger.error(`Cashfree API error: ${cashfreeError.message}`, errorDetails);
         // Continue without payment link - user can verify later
         payment.errorMessage = `Cashfree API error: ${cashfreeError.message}`;
         await payment.save();
@@ -86,6 +129,7 @@ export class PaymentService {
           orderId: payment.orderId,
           amount: payment.amount,
           status: payment.status,
+          paymentSessionId: payment.paymentSessionId,
           paymentLink: payment.paymentLink,
           description: payment.description,
         },
@@ -130,8 +174,11 @@ export class PaymentService {
    */
   async verifyPaymentStatus(orderId) {
     try {
+      // Initialize Cashfree client on first use
+      const client = initializeCashfreeClient();
+      
       // Fetch order status from Cashfree API
-      const response = await cashfreeClient.get(`/orders/${orderId}`);
+      const response = await client.get(`/orders/${orderId}`);
 
       // Update payment record if it exists
       const payment = await Payment.findOne({ cashfreeOrderId: orderId });

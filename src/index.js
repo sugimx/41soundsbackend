@@ -2,12 +2,25 @@ import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
+import { fileURLToPath } from 'url';
+import path from 'path';
 import { mongoDatabase } from './shared/database/mongo.js';
 import userRoutes from './modules/user/routes/userRoutes.js';
 import paymentRoutes from './modules/payment/routes/paymentRoutes.js';
 import { swaggerSpec } from './core/swagger/swaggerConfig.js';
 
-dotenv.config();
+// Get the directory name in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env file from project root
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
+console.log('[DEBUG] Environment loaded:', {
+  PORT: process.env.PORT,
+  NODE_ENV: process.env.NODE_ENV,
+  CASHFREE_MODE: process.env.CASHFREE_MODE,
+});
 
 const app = express();
 const PORT = process.env.PORT || 3000;

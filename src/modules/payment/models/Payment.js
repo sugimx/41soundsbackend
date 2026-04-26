@@ -17,6 +17,36 @@ const paymentSchema = new mongoose.Schema(
       required: [true, 'Amount is required'],
       min: [1, 'Amount must be greater than 0'],
     },
+    orderDetails: {
+      itemCount: {
+        type: Number,
+        required: [true, 'Item count is required'],
+        min: [1, 'Item count must be at least 1'],
+      },
+      items: [
+        {
+          name: {
+            type: String,
+            required: true,
+          },
+          quantity: {
+            type: Number,
+            required: true,
+            min: [1, 'Quantity must be at least 1'],
+          },
+          unitPrice: {
+            type: Number,
+            required: true,
+            min: [0, 'Unit price must be non-negative'],
+          },
+          totalPrice: {
+            type: Number,
+            required: true,
+            min: [0, 'Total price must be non-negative'],
+          },
+        },
+      ],
+    },
     currency: {
       type: String,
       default: 'INR',
@@ -76,6 +106,8 @@ const paymentSchema = new mongoose.Schema(
 
 // Index for quick lookup by userId and status
 paymentSchema.index({ userId: 1, status: 1 });
+// Index for finding payments by item count
+paymentSchema.index({ userId: 1, 'orderDetails.itemCount': 1 });
 // Note: orderId, cashfreeOrderId, and cashfreePaymentId indices are created automatically
 // by the 'unique: true' constraint on those fields
 

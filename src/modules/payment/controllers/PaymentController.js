@@ -9,14 +9,53 @@ export class PaymentController {
    */
   async initiatePayment(req, res) {
     try {
-      const { amount, description, metadata } = req.body;
+      const { amount, description, orderDetails, metadata } = req.body;
       const userId = req.userId;
 
       // Validate required fields
-      if (!amount || !description) {
+      if (!amount || !description || !orderDetails) {
         return res.status(400).json({
           success: false,
-          message: 'Amount and description are required',
+          message: 'Amount, description, and orderDetails are required',
+        });
+      }
+
+      // Validate orderDetails structure
+      if (!orderDetails.items || !Array.isArray(orderDetails.items) || orderDetails.items.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'orderDetails.items must be a non-empty array',
+        });
+      }
+
+      // Validate each item in orderDetails
+      for (const item of orderDetails.items) {
+        if (!item.name || !item.quantity || item.unitPrice === undefined || item.totalPrice === undefined) {
+          return res.status(400).json({
+            success: false,
+            message: 'Each item must have name, quantity, unitPrice, and totalPrice',
+          });
+        }
+        if (item.quantity < 1 || !Number.isInteger(item.quantity)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Item quantity must be a positive integer',
+          });
+        }
+        if (item.unitPrice < 0 || item.totalPrice < 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Item prices must be non-negative',
+          });
+        }
+      }
+
+      // Calculate total item count
+      const itemCount = orderDetails.items.reduce((sum, item) => sum + item.quantity, 0);
+      if (itemCount < 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'Total item count must be at least 1',
         });
       }
 
@@ -39,7 +78,7 @@ export class PaymentController {
         });
       }
 
-      const payment = await paymentService.createPayment(userId, amountInPaise, description, metadata);
+      const payment = await paymentService.createPayment(userId, amountInPaise, description, { ...orderDetails, itemCount }, metadata);
 
       res.status(201).json({
         success: true,

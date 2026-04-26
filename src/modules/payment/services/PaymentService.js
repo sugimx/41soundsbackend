@@ -58,10 +58,11 @@ export class PaymentService {
    * @param {string} userId - User ID
    * @param {number} amount - Payment amount in smallest currency unit (paise for INR)
    * @param {string} description - Payment description
+   * @param {Object} orderDetails - Order details including items, quantities, and prices
    * @param {Object} metadata - Additional metadata
    * @returns {Promise<Object>} Payment record with payment link
    */
-  async createPayment(userId, amount, description, metadata = {}) {
+  async createPayment(userId, amount, description, orderDetails, metadata = {}) {
     try {
       // Generate unique order ID
       const orderId = `ORDER_${userId}_${Date.now()}`;
@@ -72,6 +73,7 @@ export class PaymentService {
         orderId,
         amount: amount / 100, // Convert paise to rupees for storage
         description,
+        orderDetails,
         status: 'PENDING',
         metadata,
       });
@@ -131,6 +133,7 @@ export class PaymentService {
           _id: payment._id,
           orderId: payment.orderId,
           amount: payment.amount,
+          orderDetails: payment.orderDetails,
           status: payment.status,
           paymentSessionId: payment.paymentSessionId,
           paymentLink: payment.paymentLink,

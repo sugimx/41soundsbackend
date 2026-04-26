@@ -23,6 +23,7 @@ const router = express.Router();
  *             required:
  *               - amount
  *               - description
+ *               - orderDetails
  *             properties:
  *               amount:
  *                 type: number
@@ -31,7 +32,37 @@ const router = express.Router();
  *               description:
  *                 type: string
  *                 description: Payment description
- *                 example: "Charging Station Credits"
+ *                 example: "Concert Tickets"
+ *               orderDetails:
+ *                 type: object
+ *                 required:
+ *                   - items
+ *                 description: Order details including items and quantities
+ *                 properties:
+ *                   items:
+ *                     type: array
+ *                     description: Array of items in the order
+ *                     items:
+ *                       type: object
+ *                       required:
+ *                         - name
+ *                         - quantity
+ *                         - unitPrice
+ *                         - totalPrice
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                           example: "VIP Ticket"
+ *                         quantity:
+ *                           type: integer
+ *                           example: 2
+ *                           minimum: 1
+ *                         unitPrice:
+ *                           type: number
+ *                           example: 500
+ *                         totalPrice:
+ *                           type: number
+ *                           example: 1000
  *               metadata:
  *                 type: object
  *                 description: Additional metadata
@@ -59,6 +90,13 @@ const router = express.Router();
  *                       type: string
  *                     amount:
  *                       type: number
+ *                     orderDetails:
+ *                       type: object
+ *                       properties:
+ *                         itemCount:
+ *                           type: integer
+ *                         items:
+ *                           type: array
  *                     status:
  *                       type: string
  *                     paymentLink:

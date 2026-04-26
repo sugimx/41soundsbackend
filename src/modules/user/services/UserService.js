@@ -76,6 +76,11 @@ export class UserService {
     return {
       _id: user._id,
       email: user.email,
+      fullName: user.fullName,
+      mobile: user.mobile,
+      gender: user.gender,
+      dateOfBirth: user.dateOfBirth,
+      profileImage: user.profileImage,
       isActive: user.isActive,
       createdAt: user.createdAt,
     };

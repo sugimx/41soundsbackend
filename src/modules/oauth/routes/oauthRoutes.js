@@ -9,8 +9,13 @@ router.post('/google', async (req, res, next) => {
   try {
     await oauthController.googleCallback(req, res);
   } catch (error) {
-    console.error('❌ OAuth route error:', error);
-    next(error);
+    console.error('❌ OAuth route error:', error.message || error);
+    console.error('Error stack:', error.stack);
+    
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Google authentication failed',
+    });
   }
 });
 

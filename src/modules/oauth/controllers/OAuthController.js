@@ -31,7 +31,7 @@ export class OAuthController {
         });
       }
 
-      // Verify the token with Google
+      // Verify the ID Token (JWT) using google-auth-library
       let ticket;
       try {
         ticket = await oauth2Client.verifyIdToken({
@@ -46,6 +46,7 @@ export class OAuthController {
         });
       }
 
+      // Extract user info from the verified token payload
       const payload = ticket.getPayload();
       const { email, name, picture } = payload;
 
@@ -63,12 +64,9 @@ export class OAuthController {
         // Create new user from Google data
         user = await User.create({
           email,
-          fullName: name || 'User',
-          mobile: '',
-          gender: 'Other',
-          dateOfBirth: new Date(),
+          fullName: name || 'Google User',
           profileImage: picture || null,
-          password: Math.random().toString(36).substring(7), // Random password for OAuth users
+          // Optional fields (mobile, gender, dateOfBirth) left undefined - users can add later
         });
       } else {
         // Update user profile image if not set
@@ -78,6 +76,7 @@ export class OAuthController {
         }
       }
 
+      console.log('✅ User:', user);
       // Generate JWT token
       const { token, expiresAt } = generateToken(user._id);
 

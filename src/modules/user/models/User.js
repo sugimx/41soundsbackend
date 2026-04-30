@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: false, // Optional for OAuth users
       minlength: [6, 'Password must be at least 6 characters long'],
       select: false, // Don't return password by default
     },
@@ -25,19 +25,19 @@ const userSchema = new mongoose.Schema(
     },
     mobile: {
       type: String,
-      required: [true, 'Mobile number is required'],
-      match: [/^[0-9+\-\s()]+$/, 'Please provide a valid mobile number'],
+      required: false,
+      match: [/^[0-9+\-\s()]*$/, 'Please provide a valid mobile number'],
       minlength: [10, 'Mobile number must be at least 10 characters'],
       maxlength: [20, 'Mobile number cannot exceed 20 characters'],
     },
     gender: {
       type: String,
       enum: ['Male', 'Female', 'Other', 'Prefer not to say'],
-      required: [true, 'Gender is required'],
+      required: false, // Optional - users can fill in later
     },
     dateOfBirth: {
       type: Date,
-      required: [true, 'Date of birth is required'],
+      required: false, // Optional - users can fill in later
     },
     profileImage: {
       type: String,
@@ -63,12 +63,17 @@ const userSchema = new mongoose.Schema(
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) {
-    next();
+  if (!this.isModified('password') || !this.password) {
+    return next();
   }
 
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Compare password method

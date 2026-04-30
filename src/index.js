@@ -128,12 +128,27 @@ app.use('/api/users', userRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/oauth', oauthRoutes);
 
+// 404 handler for undefined routes
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({
+      success: false,
+      message: `Route not found: ${req.originalUrl}`,
+    });
+  }
+  next();
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('❌ Error:', err);
-  res.status(err.status || 500).json({
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || 'Internal server error';
+  
+  res.status(status).json({
     success: false,
-    message: err.message || 'Internal server error',
+    message: message,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
   });
 });
 

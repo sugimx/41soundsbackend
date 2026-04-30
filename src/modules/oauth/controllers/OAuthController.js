@@ -34,15 +34,24 @@ export class OAuthController {
       // Verify the ID Token (JWT) using google-auth-library
       let ticket;
       try {
+        console.log('🔍 Verifying token with CLIENT_ID:', process.env.GOOGLE_CLIENT_ID);
+        console.log('🔍 Token received (first 50 chars):', idToken.substring(0, 50) + '...');
+        
         ticket = await oauth2Client.verifyIdToken({
           idToken,
           audience: process.env.GOOGLE_CLIENT_ID,
         });
+        console.log('✅ Token verified successfully');
       } catch (tokenError) {
-        logger.error('Google token verification failed:', { error: tokenError.message });
+        console.error('❌ Token verification error:', tokenError);
+        logger.error('Google token verification failed:', { 
+          error: tokenError.message,
+          clientId: process.env.GOOGLE_CLIENT_ID,
+        });
         return res.status(401).json({
           success: false,
           message: 'Invalid or expired Google token',
+          error: process.env.NODE_ENV === 'development' ? tokenError.message : undefined,
         });
       }
 

@@ -13,7 +13,6 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: false, // Optional for OAuth users
-      minlength: [6, 'Password must be at least 6 characters long'],
       select: false, // Don't return password by default
     },
     fullName: {
@@ -26,9 +25,6 @@ const userSchema = new mongoose.Schema(
     mobile: {
       type: String,
       required: false,
-      match: [/^[0-9+\-\s()]*$/, 'Please provide a valid mobile number'],
-      minlength: [10, 'Mobile number must be at least 10 characters'],
-      maxlength: [20, 'Mobile number cannot exceed 20 characters'],
     },
     gender: {
       type: String,

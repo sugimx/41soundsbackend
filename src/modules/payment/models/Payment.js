@@ -98,6 +98,23 @@ const paymentSchema = new mongoose.Schema(
     completedAt: {
       type: Date,
     },
+    webhookProcessedAt: {
+      type: Date,
+    },
+    notificationStatus: {
+      email: {
+        sent: { type: Boolean, default: false },
+        messageId: String,
+        error: String,
+        sentAt: Date,
+      },
+      whatsapp: {
+        sent: { type: Boolean, default: false },
+        messageId: String,
+        error: String,
+        sentAt: Date,
+      },
+    },
   },
   {
     timestamps: true,

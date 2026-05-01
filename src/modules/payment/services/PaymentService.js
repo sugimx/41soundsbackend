@@ -269,6 +269,15 @@ export class PaymentService {
         return { success: false, message: 'Order not found' };
       }
 
+      // Check if webhook was already processed (prevent duplicate notifications)
+      if (payment.webhookProcessedAt) {
+        logger.info('Webhook already processed for this order', { 
+          orderId,
+          previousProcessedAt: payment.webhookProcessedAt 
+        });
+        return { success: true, message: 'Webhook already processed', payment };
+      }
+
       // Update payment status based on webhook event
       if (orderStatus === 'PAID') {
         payment.status = 'SUCCESS';
@@ -307,14 +316,62 @@ export class PaymentService {
               completedAt: payment.completedAt,
             };
 
+            // Initialize notification status if not exists
+            if (!payment.notificationStatus) {
+              payment.notificationStatus = { email: {}, whatsapp: {} };
+            }
+
             // Send email confirmation
             if (user.email) {
-              await emailService.sendPaymentConfirmation(user.email, user.fullName, paymentDetails);
+              try {
+                const emailResult = await emailService.sendPaymentConfirmation(user.email, user.fullName, paymentDetails);
+                payment.notificationStatus.email = {
+                  sent: true,
+                  messageId: emailResult.messageId || 'sent',
+                  sentAt: new Date(),
+                };
+                logger.info('Email notification sent successfully', { orderId, email: user.email, messageId: emailResult.messageId });
+              } catch (emailError) {
+                payment.notificationStatus.email = {
+                  sent: false,
+                  error: emailError.message,
+                  sentAt: new Date(),
+                };
+                logger.error('Failed to send email notification', { orderId, email: user.email, error: emailError.message });
+              }
             }
 
             // Send WhatsApp confirmation
             if (user.mobile) {
-              await whatsappService.sendPaymentConfirmation(user.mobile, user.fullName, paymentDetails);
+              try {
+                logger.info('Attempting to send WhatsApp message', { orderId, phone: user.mobile, userName: user.fullName });
+                const whatsappResult = await whatsappService.sendPaymentConfirmation(user.mobile, user.fullName, paymentDetails);
+                
+                if (whatsappResult.success) {
+                  payment.notificationStatus.whatsapp = {
+                    sent: true,
+                    messageId: whatsappResult.messageId,
+                    sentAt: new Date(),
+                  };
+                  logger.info('WhatsApp notification sent successfully', { orderId, phone: user.mobile, messageId: whatsappResult.messageId });
+                } else {
+                  payment.notificationStatus.whatsapp = {
+                    sent: false,
+                    error: whatsappResult.error || whatsappResult.message,
+                    sentAt: new Date(),
+                  };
+                  logger.warn('WhatsApp notification failed', { orderId, phone: user.mobile, error: whatsappResult.error || whatsappResult.message });
+                }
+              } catch (whatsappError) {
+                payment.notificationStatus.whatsapp = {
+                  sent: false,
+                  error: whatsappError.message,
+                  sentAt: new Date(),
+                };
+                logger.error('Exception while sending WhatsApp notification', { orderId, phone: user.mobile, error: whatsappError.message });
+              }
+            } else {
+              logger.warn('No mobile number found for user', { userId: payment.userId, orderId });
             }
           } else {
             logger.warn('Unable to send confirmations - user not found', { 
@@ -330,7 +387,13 @@ export class PaymentService {
           });
           // Don't throw - notification sending failure shouldn't block webhook processing
         }
+        
+        // Mark webhook as processed
+        payment.webhookProcessedAt = new Date();
       }
+      
+      // Save all notification status updates
+      await payment.save();
 
       return { success: true, payment };
     } catch (error) {

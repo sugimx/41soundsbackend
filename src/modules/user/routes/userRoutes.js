@@ -121,11 +121,11 @@ router.post('/register', (req, res) => userController.register(req, res));
  *               email:
  *                 type: string
  *                 format: email
- *                 example: user@example.com
+ *                 example: john.doe@example.com
  *               password:
  *                 type: string
  *                 format: password
- *                 example: password123
+ *                 example: SecurePass123!
  *     responses:
  *       200:
  *         description: Login successful
@@ -460,5 +460,75 @@ router.post('/forgot-password', (req, res) => userController.forgotPassword(req,
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/reset-password', (req, res) => userController.resetPassword(req, res));
+
+/**
+ * @swagger
+ * /api/users/profile:
+ *   get:
+ *     summary: Get authenticated user profile
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     email:
+ *                       type: string
+ *                       example: "user@example.com"
+ *                     fullName:
+ *                       type: string
+ *                       example: "John Doe"
+ *                     mobile:
+ *                       type: string
+ *                       example: "+1-234-567-8900"
+ *                     gender:
+ *                       type: string
+ *                       example: "Male"
+ *                     dateOfBirth:
+ *                       type: string
+ *                       format: date
+ *                       example: "1990-01-15"
+ *                     profileImage:
+ *                       type: string
+ *                       example: "https://example.com/image.jpg"
+ *                     role:
+ *                       type: string
+ *                       enum: ["user", "admin", "super_admin"]
+ *                       example: "user"
+ *                     isActive:
+ *                       type: boolean
+ *                       example: true
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *       401:
+ *         description: Unauthorized - User not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Not found - User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/profile', authenticate, (req, res) => userController.getProfile(req, res));
 
 export default router;

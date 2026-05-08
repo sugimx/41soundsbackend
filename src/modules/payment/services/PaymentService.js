@@ -4,6 +4,9 @@ import { User } from '../../user/models/User.js';
 import { logger } from '../../../shared/logger/logger.js';
 import { emailService } from '../../../shared/email/emailService.js';
 import { whatsappService } from '../../../shared/whatsapp/whatsappService.js';
+import { ticketService } from '../../tickets/services/TicketService.js';
+import { ticketDeliveryService } from '../../tickets/services/TicketDeliveryService.js';
+import { googleSheetsService } from '../../../shared/googlesheets/googleSheetsService.js';
 
 // Lazy-initialized Cashfree client
 let cashfreeClient = null;
@@ -286,6 +289,53 @@ export class PaymentService {
         payment.transactionId = order?.payment_id || data?.payment_id;
         payment.completedAt = new Date();
         logger.info(`Payment confirmed via webhook: ${orderId}`);
+
+        // Create tickets for the payment automatically
+        try {
+          const ticketType = payment.metadata?.ticketType || 'Regular';
+          const quantity = payment.orderDetails?.itemCount || 1;
+          
+          const createdTickets = await ticketService.createTicketsForPayment(
+            payment._id,
+            quantity,
+            ticketType
+          );
+          
+          logger.info(`Tickets created automatically for payment`, {
+            orderId,
+            ticketCount: createdTickets.length,
+            ticketType,
+          });
+
+          // Store ticket IDs in payment for reference
+          payment.ticketIds = createdTickets.map(t => t._id);
+
+          // Send tickets to user via email and WhatsApp (async, don't wait)
+          try {
+            createdTickets.forEach(ticket => {
+              ticketDeliveryService.sendTicket(ticket._id).catch(error => {
+                logger.error('Error delivering ticket', {
+                  error: error.message,
+                  ticketId: ticket._id,
+                });
+              });
+            });
+          } catch (deliveryError) {
+            logger.error('Error initiating ticket delivery', {
+              error: deliveryError.message,
+              orderId,
+            });
+            // Don't fail if delivery fails - customer can retrieve tickets later
+          }
+        } catch (ticketError) {
+          logger.error('Error creating tickets for successful payment', {
+            error: ticketError.message,
+            orderId,
+            paymentId: payment._id,
+          });
+          // Don't fail the payment webhook if tickets fail to create
+          // Customer can still retrieve tickets later
+        }
       } else if (['EXPIRED', 'CANCELLED'].includes(orderStatus)) {
         payment.status = 'CANCELLED';
         payment.errorMessage = 'Payment was cancelled or expired';
@@ -394,6 +444,18 @@ export class PaymentService {
       
       // Save all notification status updates
       await payment.save();
+
+      // Log webhook data to Google Sheets
+      try {
+        const user = await User.findById(payment.userId);
+        await googleSheetsService.logWebhookData(webhookData, payment, user);
+      } catch (sheetsError) {
+        logger.warn('Failed to log webhook data to Google Sheets', {
+          error: sheetsError.message,
+          orderId: payment.cashfreeOrderId,
+        });
+        // Don't fail webhook processing if Google Sheets logging fails
+      }
 
       return { success: true, payment };
     } catch (error) {

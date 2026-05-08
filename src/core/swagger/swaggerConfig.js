@@ -1,4 +1,22 @@
 import swaggerJsdoc from 'swagger-jsdoc';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.join(__dirname, '../../..');
+
+const apiFiles = [
+  path.join(projectRoot, 'src/index.js'),
+  path.join(projectRoot, 'src/modules/user/routes/userRoutes.js'),
+  path.join(projectRoot, 'src/modules/payment/routes/paymentRoutes.js'),
+  path.join(projectRoot, 'src/modules/tickets/routes/ticketRoutes.js'),
+  path.join(projectRoot, 'src/modules/oauth/routes/oauthRoutes.js'),
+  path.join(projectRoot, 'src/modules/support/routes/supportRoutes.js'),
+  path.join(projectRoot, 'src/modules/admin/routes/adminRoutes.js'),
+];
+
+console.log('[SWAGGER] Scanning files:', apiFiles);
 
 const options = {
   definition: {
@@ -207,6 +225,147 @@ const options = {
             },
           },
         },
+        Ticket: {
+          type: 'object',
+          properties: {
+            _id: {
+              type: 'string',
+              description: 'Ticket ID (MongoDB ObjectId)',
+            },
+            ticketNumber: {
+              type: 'string',
+              description: 'Unique ticket number',
+              example: 'TKT-1704067200000-5a8c',
+            },
+            eventId: {
+              type: 'string',
+              description: 'Reference to Event',
+            },
+            userId: {
+              type: 'string',
+              description: 'Reference to User who owns the ticket',
+            },
+            paymentId: {
+              type: 'string',
+              description: 'Reference to Payment',
+            },
+            ticketType: {
+              type: 'string',
+              enum: ['VIP', 'Premium', 'Regular', 'Student', 'Child'],
+              description: 'Type of ticket',
+            },
+            price: {
+              type: 'number',
+              format: 'double',
+              description: 'Ticket price',
+            },
+            status: {
+              type: 'string',
+              enum: ['VALID', 'USED', 'CANCELLED', 'REFUNDED'],
+              description: 'Ticket status',
+            },
+            seatSection: {
+              type: 'string',
+              description: 'Seat section',
+            },
+            seatNumber: {
+              type: 'string',
+              description: 'Seat number',
+            },
+            issuedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'When ticket was issued',
+            },
+            expiryDate: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Ticket expiry date',
+            },
+            usedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'When ticket was used',
+              nullable: true,
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Ticket creation date',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Last update date',
+            },
+          },
+        },
+        Event: {
+          type: 'object',
+          properties: {
+            _id: {
+              type: 'string',
+              description: 'Event ID (MongoDB ObjectId)',
+            },
+            eventName: {
+              type: 'string',
+              description: 'Name of the event',
+            },
+            eventDate: {
+              type: 'string',
+              format: 'date',
+              description: 'Event date',
+            },
+            eventTime: {
+              type: 'string',
+              description: 'Event time',
+            },
+            venue: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                address: { type: 'string' },
+                city: { type: 'string' },
+                state: { type: 'string' },
+                zipCode: { type: 'string' },
+                capacity: { type: 'number' },
+              },
+            },
+            organizer: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                email: { type: 'string' },
+                phone: { type: 'string' },
+              },
+            },
+            ticketTypes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  price: { type: 'number' },
+                  totalQuantity: { type: 'number' },
+                  soldQuantity: { type: 'number' },
+                },
+              },
+            },
+            status: {
+              type: 'string',
+              enum: ['DRAFT', 'ACTIVE', 'CANCELLED', 'COMPLETED'],
+              description: 'Event status',
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+        },
       },
       securitySchemes: {
         bearerAuth: {
@@ -226,12 +385,54 @@ const options = {
         description: 'Payment operations and Cashfree payment gateway integration',
       },
       {
+        name: 'Tickets',
+        description: 'Ticket management and redemption',
+      },
+      {
+        name: 'OAuth',
+        description: 'OAuth authentication with Google and other providers',
+      },
+      {
+        name: 'Support',
+        description: 'Support ticket management',
+      },
+      {
+        name: 'Admin Dashboard',
+        description: 'Admin dashboard statistics',
+      },
+      {
+        name: 'Admin Tickets',
+        description: 'Admin ticket management',
+      },
+      {
+        name: 'Admin Users',
+        description: 'Admin user management',
+      },
+      {
+        name: 'Admin Payments',
+        description: 'Admin payment management',
+      },
+      {
+        name: 'Admin Support',
+        description: 'Admin support ticket management',
+      },
+      {
+        name: 'Admin Analytics',
+        description: 'Admin analytics and reporting',
+      },
+      {
         name: 'Health',
         description: 'Application health check',
       },
     ],
   },
-  apis: ['./src/modules/user/routes/*.js', './src/modules/payment/routes/*.js', './src/index.js'],
+  apis: apiFiles,
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
+
+// Log the paths found in swagger spec
+console.log('[SWAGGER] Paths found:', Object.keys(swaggerSpec.paths || {}).length, 'paths');
+if (swaggerSpec.tags) {
+  console.log('[SWAGGER] Tags found:', swaggerSpec.tags.map(t => t.name).join(', '));
+}

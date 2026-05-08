@@ -4,15 +4,27 @@ import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import fs from 'fs';
 import { mongoDatabase } from './shared/database/mongo.js';
+import { authenticate } from './core/middlewares/authMiddleware.js';
 import userRoutes from './modules/user/routes/userRoutes.js';
 import paymentRoutes from './modules/payment/routes/paymentRoutes.js';
 import oauthRoutes from './modules/oauth/routes/oauthRoutes.js';
+import ticketRoutes from './modules/tickets/routes/ticketRoutes.js';
+import supportRoutes from './modules/support/routes/supportRoutes.js';
+import adminRoutes from './modules/admin/routes/adminRoutes.js';
 import { swaggerSpec } from './core/swagger/swaggerConfig.js';
 
-// Get the directory name in ES modules
+// Log to file for debugging
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const logPath = path.join(__dirname, '..', 'server-startup.log');
+
+try {
+  fs.writeFileSync(logPath, `[${new Date().toISOString()}] Server starting with admin routes from original adminRoutes.js\n`);
+} catch(e) {
+  //  ignore
+}
 
 // Load .env file from project root
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -43,10 +55,17 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Serve the raw Swagger JSON spec at root level
+app.get('/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   swaggerOptions: {
     persistAuthorization: true,
+    url: '/swagger.json',  // Tell Swagger UI where to fetch the spec
   },
 }));
 
@@ -127,6 +146,9 @@ app.use('/api', async (req, res, next) => {
 app.use('/api/users', userRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/oauth', oauthRoutes);
+app.use('/api/tickets', ticketRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/support', supportRoutes);
 
 // 404 handler for undefined routes
 app.use((req, res, next) => {

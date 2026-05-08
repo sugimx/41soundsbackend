@@ -267,6 +267,536 @@ This is an automated email. Please do not reply to this email.
 © 2024 41Sounds. All rights reserved.
     `;
   }
+
+  /**
+   * Send ticket delivery email
+   * @param {string} userEmail - Recipient email address
+   * @param {string} userName - Recipient name
+   * @param {Object} ticketDetails - Ticket details object
+   * @returns {Promise<Object>} Send result
+   */
+  async sendTicketDelivery(userEmail, userName, ticketDetails) {
+    try {
+      const emailTransporter = initializeTransporter();
+
+      if (!emailTransporter) {
+        logger.warn('Email service not configured. Skipping ticket delivery email.', {
+          userEmail,
+          ticketNumber: ticketDetails.ticketNumber,
+        });
+        return { success: false, message: 'Email service not configured' };
+      }
+
+      const attachments = [];
+      if (ticketDetails.qrCodeImage) {
+        // Extract base64 data from data URL if needed
+        const base64Data = ticketDetails.qrCodeImage.includes('base64,')
+          ? ticketDetails.qrCodeImage.split('base64,')[1]
+          : ticketDetails.qrCodeImage;
+
+        attachments.push({
+          filename: `ticket-${ticketDetails.ticketNumber}.png`,
+          content: Buffer.from(base64Data, 'base64'),
+          cid: 'qrcode@41sounds',
+        });
+      }
+
+      const mailOptions = {
+        from: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
+        to: userEmail,
+        subject: `Your Event Ticket - ${ticketDetails.eventName} - 41Sounds`,
+        html: this.generateTicketDeliveryHTML(userName, ticketDetails),
+        text: this.generateTicketDeliveryText(userName, ticketDetails),
+        attachments,
+      };
+
+      const result = await emailTransporter.sendMail(mailOptions);
+
+      logger.info('Ticket delivery email sent', {
+        to: userEmail,
+        ticketNumber: ticketDetails.ticketNumber,
+        messageId: result.messageId,
+      });
+
+      return { success: true, messageId: result.messageId };
+    } catch (error) {
+      logger.error('Failed to send ticket delivery email', {
+        error: error.message,
+        userEmail,
+        ticketNumber: ticketDetails.ticketNumber,
+      });
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Generate HTML email template for ticket delivery
+   * @param {string} userName - User name
+   * @param {Object} ticketDetails - Ticket details
+   * @returns {string} HTML template
+   */
+  generateTicketDeliveryHTML(userName, ticketDetails) {
+    const eventDate = new Date(ticketDetails.eventDate).toLocaleDateString(
+      'en-IN',
+      { year: 'numeric', month: 'long', day: 'numeric' }
+    );
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              padding: 20px;
+            }
+            .container {
+              max-width: 600px;
+              margin: 0 auto;
+              background-color: #fff;
+              padding: 30px;
+              border-radius: 12px;
+              box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            }
+            .header {
+              text-align: center;
+              border-bottom: 3px solid #667eea;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              color: #667eea;
+              margin: 0;
+              font-size: 28px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 10px;
+            }
+            .ticket-badge {
+              display: inline-block;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 10px 15px;
+              border-radius: 50px;
+              font-size: 12px;
+              font-weight: bold;
+            }
+            .event-section {
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 25px;
+              border-radius: 8px;
+              margin: 20px 0;
+              text-align: center;
+            }
+            .event-section h2 {
+              margin: 0 0 15px 0;
+              font-size: 22px;
+              text-transform: uppercase;
+            }
+            .event-date {
+              font-size: 18px;
+              margin: 10px 0;
+              font-weight: bold;
+            }
+            .qr-section {
+              text-align: center;
+              margin: 25px 0;
+              padding: 20px;
+              background-color: #f5f5f5;
+              border-radius: 8px;
+            }
+            .qr-section img {
+              max-width: 250px;
+              height: auto;
+              border-radius: 8px;
+            }
+            .qr-label {
+              font-size: 12px;
+              color: #666;
+              margin-top: 10px;
+              text-transform: uppercase;
+              font-weight: bold;
+            }
+            .details-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 15px;
+              margin: 20px 0;
+            }
+            .detail-box {
+              padding: 15px;
+              background-color: #f9f9f9;
+              border-left: 4px solid #667eea;
+              border-radius: 4px;
+            }
+            .detail-label {
+              font-size: 12px;
+              color: #999;
+              text-transform: uppercase;
+              font-weight: bold;
+              display: block;
+              margin-bottom: 5px;
+            }
+            .detail-value {
+              font-size: 18px;
+              font-weight: bold;
+              color: #333;
+            }
+            .instructions {
+              background-color: #fff3cd;
+              border-left: 4px solid #ffc107;
+              padding: 15px;
+              border-radius: 4px;
+              margin: 20px 0;
+            }
+            .instructions h3 {
+              color: #856404;
+              margin-top: 0;
+            }
+            .instructions ul {
+              margin: 10px 0;
+              padding-left: 20px;
+              color: #856404;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 30px;
+              padding-top: 20px;
+              border-top: 1px solid #ddd;
+              font-size: 12px;
+              color: #999;
+            }
+            .cta-button {
+              display: inline-block;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 12px 30px;
+              text-decoration: none;
+              border-radius: 50px;
+              font-weight: bold;
+              margin: 20px 0;
+              text-align: center;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎫 Your Ticket is Ready!</h1>
+            </div>
+
+            <p>Hello ${userName},</p>
+
+            <p>Thank you for your purchase! Your ticket for the upcoming event is now ready. Please find all the details below.</p>
+
+            <div class="event-section">
+              <h2>${ticketDetails.eventName}</h2>
+              <div class="event-date">📅 ${eventDate}</div>
+            </div>
+
+            <div class="qr-section">
+              <p><strong>Your QR Code</strong></p>
+              <img src="cid:qrcode@41sounds" alt="Ticket QR Code">
+              <div class="qr-label">Show this QR code at the venue for entry</div>
+            </div>
+
+            <div class="details-grid">
+              <div class="detail-box">
+                <span class="detail-label">Ticket Number</span>
+                <span class="detail-value">${ticketDetails.ticketNumber}</span>
+              </div>
+              <div class="detail-box">
+                <span class="detail-label">Ticket Type</span>
+                <span class="detail-value">${ticketDetails.ticketType}</span>
+              </div>
+              <div class="detail-box">
+                <span class="detail-label">Price</span>
+                <span class="detail-value">₹${ticketDetails.price}</span>
+              </div>
+              <div class="detail-box">
+                <span class="detail-label">Seat</span>
+                <span class="detail-value">${ticketDetails.seatNumber}</span>
+              </div>
+            </div>
+
+            <div class="instructions">
+              <h3>📋 Important Instructions</h3>
+              <ul>
+                <li>Save this email and the QR code for reference</li>
+                <li>Arrive 15-30 minutes before the event starts</li>
+                <li>Present your QR code at the entrance</li>
+                <li>Keep your ticket safe and secure</li>
+                <li>This ticket is non-transferable unless permitted</li>
+              </ul>
+            </div>
+
+            <p><strong>Venue Details:</strong></p>
+            <p>
+              📍 ${ticketDetails.venue?.name || 'TBD'}<br>
+              ${ticketDetails.venue?.address || ''}<br>
+              ${ticketDetails.venue?.city || ''}, ${ticketDetails.venue?.state || ''}
+            </p>
+
+            <p>Valid until: ${new Date(ticketDetails.expiryDate).toLocaleDateString('en-IN')}</p>
+
+            <center>
+              <a href="${process.env.APP_URL || 'https://www.41sounds.com'}" class="cta-button">Visit 41Sounds</a>
+            </center>
+
+            <div class="footer">
+              <p>If you have any questions, please contact our support team.</p>
+              <p>&copy; 2024 41Sounds. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate plain text email template for ticket delivery
+   * @param {string} userName - User name
+   * @param {Object} ticketDetails - Ticket details
+   * @returns {string} Plain text template
+   */
+  generateTicketDeliveryText(userName, ticketDetails) {
+    const eventDate = new Date(ticketDetails.eventDate).toLocaleDateString(
+      'en-IN',
+      { year: 'numeric', month: 'long', day: 'numeric' }
+    );
+
+    return `
+Hello ${userName},
+
+Your ticket for the event is ready!
+
+EVENT: ${ticketDetails.eventName}
+DATE: ${eventDate}
+
+TICKET DETAILS:
+---
+Ticket Number: ${ticketDetails.ticketNumber}
+Type: ${ticketDetails.ticketType}
+Price: ₹${ticketDetails.price}
+Seat: ${ticketDetails.seatNumber}
+
+Please save your QR code (attached) and present it at the venue for entry.
+
+IMPORTANT:
+- Arrive 15-30 minutes before the event
+- Keep your ticket safe
+- This ticket is non-transferable
+- Valid until: ${new Date(ticketDetails.expiryDate).toLocaleDateString('en-IN')}
+
+VENUE:
+${ticketDetails.venue?.name || 'TBD'}
+${ticketDetails.venue?.address || ''}
+${ticketDetails.venue?.city || ''}, ${ticketDetails.venue?.state || ''}
+
+If you have any questions, contact our support team.
+
+---
+© 2024 41Sounds. All rights reserved.
+    `;
+  }
+
+  /**
+   * Send event reminder email
+   * @param {string} userEmail - Recipient email address
+   * @param {string} userName - Recipient name
+   * @param {Object} reminderDetails - Reminder details
+   * @returns {Promise<Object>} Send result
+   */
+  async sendEventReminder(userEmail, userName, reminderDetails) {
+    try {
+      const emailTransporter = initializeTransporter();
+
+      if (!emailTransporter) {
+        logger.warn('Email service not configured. Skipping event reminder email.', {
+          userEmail,
+          eventName: reminderDetails.eventName,
+        });
+        return { success: false, message: 'Email service not configured' };
+      }
+
+      const mailOptions = {
+        from: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
+        to: userEmail,
+        subject: `Reminder: ${reminderDetails.eventName} is Coming Up! - 41Sounds`,
+        html: this.generateEventReminderHTML(userName, reminderDetails),
+        text: this.generateEventReminderText(userName, reminderDetails),
+      };
+
+      const result = await emailTransporter.sendMail(mailOptions);
+
+      logger.info('Event reminder email sent', {
+        to: userEmail,
+        eventName: reminderDetails.eventName,
+        messageId: result.messageId,
+      });
+
+      return { success: true, messageId: result.messageId };
+    } catch (error) {
+      logger.error('Failed to send event reminder email', {
+        error: error.message,
+        userEmail,
+        eventName: reminderDetails.eventName,
+      });
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Generate HTML email template for event reminder
+   * @param {string} userName - User name
+   * @param {Object} reminderDetails - Reminder details
+   * @returns {string} HTML template
+   */
+  generateEventReminderHTML(userName, reminderDetails) {
+    const eventDate = new Date(reminderDetails.eventDate).toLocaleDateString(
+      'en-IN',
+      { year: 'numeric', month: 'long', day: 'numeric' }
+    );
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              background-color: #f9f9f9;
+            }
+            .container {
+              max-width: 600px;
+              margin: 0 auto;
+              background-color: #fff;
+              padding: 20px;
+              border-radius: 8px;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .header {
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+              color: white;
+              padding: 20px;
+              text-align: center;
+              border-radius: 8px;
+              margin-bottom: 20px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 24px;
+            }
+            .event-info {
+              background-color: #fff3cd;
+              border-left: 4px solid #ffc107;
+              padding: 15px;
+              border-radius: 4px;
+              margin: 20px 0;
+            }
+            .event-name {
+              font-size: 20px;
+              font-weight: bold;
+              color: #333;
+              margin: 10px 0;
+            }
+            .event-date {
+              font-size: 16px;
+              color: #666;
+              margin: 10px 0;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 20px;
+              padding-top: 20px;
+              border-top: 1px solid #ddd;
+              font-size: 12px;
+              color: #999;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎵 Don't Miss Out!</h1>
+            </div>
+
+            <p>Hi ${userName},</p>
+
+            <p>This is a friendly reminder that your upcoming event is just around the corner!</p>
+
+            <div class="event-info">
+              <p><strong>Event:</strong></p>
+              <div class="event-name">${reminderDetails.eventName}</div>
+              <p><strong>Date:</strong></p>
+              <div class="event-date">📅 ${eventDate}</div>
+              <p><strong>Ticket Number:</strong></p>
+              <div>${reminderDetails.ticketNumber}</div>
+            </div>
+
+            <p><strong>Things to Remember:</strong></p>
+            <ul>
+              <li>Bring your QR code with you</li>
+              <li>Arrive early for better seating</li>
+              <li>Check the weather and dress accordingly</li>
+              <li>Bring valid ID if required</li>
+            </ul>
+
+            <p>Get ready for an amazing experience! See you there! 🎉</p>
+
+            <div class="footer">
+              <p>&copy; 2024 41Sounds. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate plain text email template for event reminder
+   * @param {string} userName - User name
+   * @param {Object} reminderDetails - Reminder details
+   * @returns {string} Plain text template
+   */
+  generateEventReminderText(userName, reminderDetails) {
+    const eventDate = new Date(reminderDetails.eventDate).toLocaleDateString(
+      'en-IN',
+      { year: 'numeric', month: 'long', day: 'numeric' }
+    );
+
+    return `
+Hi ${userName},
+
+Don't miss your upcoming event!
+
+EVENT: ${reminderDetails.eventName}
+DATE: ${eventDate}
+TICKET: ${reminderDetails.ticketNumber}
+
+Remember to:
+- Bring your QR code
+- Arrive early
+- Check the weather
+- Bring valid ID if needed
+
+See you there! 🎉
+
+---
+© 2024 41Sounds. All rights reserved.
+    `;
+  }
 }
 
 export const emailService = new EmailService();

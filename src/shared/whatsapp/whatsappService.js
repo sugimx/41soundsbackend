@@ -175,6 +175,17 @@ Thank you! 🙏
       return { success: false, error: error.message };
     }
   }
+
+  /**
+   * Send generic WhatsApp message
+   * Alias for sendCustomMessage with normalized phone number
+   * @param {string} phoneNumber - Recipient phone number
+   * @param {string} message - Message text
+   * @returns {Promise<Object>} Send result
+   */
+  async sendMessage(phoneNumber, message) {
+    return this.sendCustomMessage(phoneNumber, message);
+  }
 }
 
 export const whatsappService = new WhatsAppService();

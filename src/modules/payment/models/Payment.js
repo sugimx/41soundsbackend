@@ -115,6 +115,12 @@ const paymentSchema = new mongoose.Schema(
         sentAt: Date,
       },
     },
+    ticketIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Ticket',
+      },
+    ],
   },
   {
     timestamps: true,

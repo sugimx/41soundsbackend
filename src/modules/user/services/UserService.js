@@ -207,7 +207,7 @@ export class UserService {
     }
 
     const user = await User.findByIdAndUpdate(userId, filteredData, {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     });
 

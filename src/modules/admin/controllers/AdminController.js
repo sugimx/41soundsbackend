@@ -215,9 +215,9 @@ export class AdminController {
         userEmail: ticket.userId?.email,
         userName: ticket.userId?.fullName,
         ticketTier: ticket.ticketType,
-        quantity: 1, // Each ticket is 1
+        quantity: ticket.quantity || 1, // Each ticket is 1
         unitPrice: ticket.price,
-        totalPrice: ticket.price,
+        totalPrice: ticket.price * (ticket.quantity || 1),
         status: ticket.status,
         paymentId: ticket.paymentId?._id,
         qrCode: ticket.ticketNumber,
@@ -687,7 +687,20 @@ export class AdminController {
       // Get purchase stats for each user
       const usersWithStats = await Promise.all(
         users.map(async (user) => {
-          const tickets = await Ticket.countDocuments({ userId: user._id });
+          const ticketCountResult = await Ticket.aggregate([
+            { $match: { userId: user._id } },
+            {
+              $group: {
+                _id: null,
+                totalQuantity: {
+                  $sum: {
+                    $ifNull: ['$quantity', 1],
+                  },
+                },
+              },
+            },
+          ]);
+          const totalTicketsPurchased = ticketCountResult[0]?.totalQuantity || 0;
           const payments = await Payment.aggregate([
             { $match: { userId: user._id, status: 'SUCCESS' } },
             { $group: { _id: null, total: { $sum: '$amount' } } },
@@ -701,7 +714,7 @@ export class AdminController {
             gender: user.gender,
             dateOfBirth: user.dateOfBirth,
             isActive: user.isActive,
-            totalTicketsPurchased: tickets,
+            totalTicketsPurchased,
             totalAmountSpent: payments[0]?.total || 0,
             createdAt: user.createdAt,
             lastPurchaseDate: user.updatedAt,
@@ -747,7 +760,20 @@ export class AdminController {
       }
 
       // Get user purchase stats
-      const tickets = await Ticket.countDocuments({ userId: user._id });
+      const ticketCountResult = await Ticket.aggregate([
+        { $match: { userId: user._id } },
+        {
+          $group: {
+            _id: null,
+            totalQuantity: {
+              $sum: {
+                $ifNull: ['$quantity', 1],
+              },
+            },
+          },
+        },
+      ]);
+      const totalTicketsPurchased = ticketCountResult[0]?.totalQuantity || 0;
       const payments = await Payment.aggregate([
         { $match: { userId: user._id, status: 'SUCCESS' } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
@@ -757,7 +783,7 @@ export class AdminController {
         success: true,
         data: {
           ...user.toObject(),
-          totalTicketsPurchased: tickets,
+          totalTicketsPurchased,
           totalAmountSpent: payments[0]?.total || 0,
         },
       });

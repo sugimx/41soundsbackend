@@ -563,10 +563,23 @@ export class AdminController {
         createdTickets.length
       );
 
-      const [emailResult, whatsappResult, sheetResult] = await Promise.allSettled([
+      const ticketSheetPromise = googleSheetsService.logTicketData({
+        customerName: user.fullName,
+        customerPhone: user.mobile,
+        customerEmail: user.email,
+        numberOfTickets: quantityValue,
+        ticketCategory: ticketTier,
+        orderAmount: unitPrice,
+        transactionDate: payment.completedAt || new Date(),
+        orderId: payment.orderId,
+        seatNumber: '',
+      });
+
+      const [emailResult, whatsappResult, sheetResult, ticketSheetResult] = await Promise.allSettled([
         emailPromise,
         whatsappPromise,
         sheetPromise,
+        ticketSheetPromise,
       ]);
 
       if (sheetResult.status === 'rejected') {

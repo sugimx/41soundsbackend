@@ -310,6 +310,21 @@ export class PaymentService {
           // Store ticket IDs in payment for reference
           payment.ticketIds = createdTickets.map(t => t._id);
 
+          const ticketCustomer = await User.findById(payment.userId);
+
+          // Log ticket rows to Tickets sheet
+          await googleSheetsService.logTicketData({
+            customerName: ticketCustomer?.fullName || 'N/A',
+            customerPhone: ticketCustomer?.mobile || '',
+            customerEmail: ticketCustomer?.email || 'N/A',
+            numberOfTickets: createdTickets.length,
+            ticketCategory: ticketType,
+            orderAmount: payment.amount,
+            transactionDate: payment.completedAt || new Date(),
+            orderId: payment.orderId,
+            seatNumber: '',
+          });
+
           // Send tickets to user via email and WhatsApp (async, don't wait)
           try {
             createdTickets.forEach(ticket => {
@@ -356,6 +371,7 @@ export class PaymentService {
           const user = await User.findById(payment.userId);
           
           if (user) {
+            const ticketTier = payment.metadata?.ticketType || 'Regular';
             const paymentDetails = {
               orderId: payment.orderId,
               amount: payment.amount,
@@ -374,7 +390,7 @@ export class PaymentService {
             // Send email confirmation
             if (user.email) {
               try {
-                const emailResult = await emailService.sendPaymentConfirmation(user.email, user.fullName, paymentDetails);
+                const emailResult = await emailService.sendPaymentConfirmation(user.email, user.fullName, paymentDetails, ticketTier);
                 payment.notificationStatus.email = {
                   sent: true,
                   messageId: emailResult.messageId || 'sent',
@@ -395,7 +411,7 @@ export class PaymentService {
             if (user.mobile) {
               try {
                 logger.info('Attempting to send WhatsApp message', { orderId, phone: user.mobile, userName: user.fullName });
-                const whatsappResult = await whatsappService.sendPaymentConfirmation(user.mobile, user.fullName, paymentDetails);
+                const whatsappResult = await whatsappService.sendPaymentConfirmation(user.mobile, user.fullName, paymentDetails, ticketTier);
                 
                 if (whatsappResult.success) {
                   payment.notificationStatus.whatsapp = {

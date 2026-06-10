@@ -59,8 +59,8 @@ export class EmailService {
         from: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
         to: userEmail,
         subject: 'Payment Confirmation - 41Sounds',
-        html: this.generatePaymentConfirmationHTML(userName, paymentDetails),
-        text: this.generatePaymentConfirmationText(userName, paymentDetails),
+        html: this.generatePaymentConfirmationHTML(userName, paymentDetails, ticketTier),
+        text: this.generatePaymentConfirmationText(userName, paymentDetails, ticketTier),
       };
 
       const result = await emailTransporter.sendMail(mailOptions);
@@ -86,9 +86,10 @@ export class EmailService {
    * Generate HTML email template for payment confirmation
    * @param {string} userName - User name
    * @param {Object} paymentDetails - Payment details
+   * @param {string} ticketTier - Ticket tier (e.g. 'VIP', 'General')
    * @returns {string} HTML template
    */
-  generatePaymentConfirmationHTML(userName, paymentDetails) {
+  generatePaymentConfirmationHTML(userName, paymentDetails, ticketTier) {
     const formattedDate = new Date(paymentDetails.completedAt || new Date()).toLocaleDateString(
       'en-IN',
       { year: 'numeric', month: 'long', day: 'numeric' }
@@ -241,9 +242,10 @@ export class EmailService {
    * Generate plain text email template for payment confirmation
    * @param {string} userName - User name
    * @param {Object} paymentDetails - Payment details
+   * @param {string} ticketTier - Ticket tier (e.g. 'VIP', 'General')
    * @returns {string} Plain text template
    */
-  generatePaymentConfirmationText(userName, paymentDetails) {
+  generatePaymentConfirmationText(userName, paymentDetails, ticketTier) {
     const formattedDate = new Date(paymentDetails.completedAt || new Date()).toLocaleDateString(
       'en-IN',
       { year: 'numeric', month: 'long', day: 'numeric' }
@@ -253,6 +255,8 @@ export class EmailService {
 Hello ${userName},
 
 Your payment has been successfully processed! Thank you for your transaction with 41Sounds.
+
+You've booked ${ticketTier || 'your'} tickets for the upcoming Muthamazhai 2.0 event on 18 July 2026 at Hindustan Concert Ground, Coimbatore at 6:30 PM.
 
 Payment Details:
 ---

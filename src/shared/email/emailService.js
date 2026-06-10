@@ -40,9 +40,10 @@ export class EmailService {
    * @param {string} userEmail - Recipient email address
    * @param {string} userName - Recipient name
    * @param {Object} paymentDetails - Payment details object
+   * @param {string} ticketTier - Ticket tier (e.g., 'VIP', 'General')
    * @returns {Promise<Object>} Send result
    */
-  async sendPaymentConfirmation(userEmail, userName, paymentDetails) {
+  async sendPaymentConfirmation(userEmail, userName, paymentDetails, ticketTier) {
     try {
       const emailTransporter = initializeTransporter();
 
@@ -191,6 +192,8 @@ export class EmailService {
 
             <p>Your payment has been successfully processed! Thank you for your transaction with 41Sounds.</p>
 
+            <p>Thank you for booking your ${ticketTier} tickets for our upcoming Muthamazhai 2.0 event on 18 July 2026 at Hindustan Concert Ground, Coimbatore at 6:30 PM.</p>
+
             <div class="details-section">
               <div class="detail-row">
                 <span class="detail-label">Order ID:</span>
@@ -218,9 +221,11 @@ export class EmailService {
               </div>
             </div>
 
+            <p>Your booking is being processed, and you will receive your ticket details via email/whatsapp anytime before in the last three days of the event.</p>
+
             <p>If you have any questions or need further assistance, please don't hesitate to contact our support team.</p>
 
-            <a href="${process.env.APP_URL || 'https://www.41sounds.com'}" class="cta-button">Visit 41Sounds</a>
+            <a href="${'https://www.41sounds.com'}" class="cta-button">Visit 41Sounds</a>
 
             <div class="footer">
               <p>This is an automated email. Please do not reply to this email.</p>

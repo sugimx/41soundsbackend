@@ -22,7 +22,15 @@ export class AdminController {
       const totalUsers = await User.countDocuments({});
 
       // Get total tickets sold
-      const totalTicketsSold = await Ticket.countDocuments({});
+      const totalTicketsSoldResult = await Ticket.aggregate([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ['$quantity', 1] } },
+          },
+        },
+      ]);
+      const totalTicketsSold = totalTicketsSoldResult[0]?.total || 0;
 
       // Get total revenue
       const revenueData = await Payment.aggregate([
@@ -41,7 +49,12 @@ export class AdminController {
 
       // Get tickets by tier
       const ticketsByTier = await Ticket.aggregate([
-        { $group: { _id: '$ticketType', count: { $sum: 1 } } },
+        {
+          $group: {
+            _id: '$ticketType',
+            count: { $sum: { $ifNull: ['$quantity', 1] } },
+          },
+        },
         { $project: { _id: 0, tier: '$_id', count: 1 } },
       ]);
 
@@ -425,14 +438,38 @@ export class AdminController {
 
       await user.save();
 
-      // Get event ID (using the first event or create default)
-      let event = await Event.findOne();
+      // Get event ID (prefer active event, otherwise any event, otherwise create a default)
+      let event = await Event.findOne({ status: 'ACTIVE' });
       if (!event) {
-        // Create a default event for 41 Sounds
+        event = await Event.findOne();
+      }
+      if (!event) {
+        const futureEventDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         event = await Event.create({
-          name: '41 Sounds Concert',
-          date: new Date(),
-          description: 'Main 41 Sounds Concert Event',
+          eventName: 'Muthamazhai 2.0',
+          description: 'Get ready for an exciting evening filled with electrifying live music by renowned singer Chinmayi!',
+          eventDate: futureEventDate,
+          eventTime: '18:30',
+          venue: {
+            name: 'Hindustan Concert Ground',
+            address: 'Hindustan Concert Ground, Coimbatore',
+            city: 'Coimbatore',
+            state: 'Tamil Nadu',
+            zipCode: '641018',
+            capacity: 5000,
+          },
+          organizer: {
+            name: '41 Sounds',
+            email: 'connect@41sounds.com',
+            phone: '+919345510582',
+          },
+          ticketTypes: [
+            { name: 'Gold', price: 800, totalQuantity: 1000, soldQuantity: 0, description: 'Gold tier' },
+            { name: 'Platinum', price: 1200, totalQuantity: 500, soldQuantity: 0, description: 'Platinum tier' },
+            { name: 'VIP', price: 2000, totalQuantity: 200, soldQuantity: 0, description: 'VIP tier' },
+            { name: 'MVIP', price: 5000, totalQuantity: 100, soldQuantity: 0, description: 'MVIP tier' },
+          ],
+          status: 'ACTIVE',
         });
       }
 
@@ -440,15 +477,17 @@ export class AdminController {
       const unitPrice = tierPrices[ticketTier];
       const totalPrice = unitPrice * quantityValue;
 
+      const randomString = Math.random().toString(36).substr(2, 7).toUpperCase();
+
       // Create payment record
-      const orderId = `ADM-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      const orderId = `ADM-${Date.now()}-${randomString}`;
       
       const payment = new Payment({
         userId: user._id,
         orderId,
         amount: totalPrice,
         status: 'SUCCESS',
-        paymentMethod: 'UNKNOWN', // Set to UNKNOWN since admin is creating it
+        paymentMethod: 'Direct', // Set to UNKNOWN since admin is creating it
         description: `Admin created ${quantityValue} ${ticketTier} ticket(s)`,
         metadata: {
           createdByAdmin: true,
@@ -476,33 +515,30 @@ export class AdminController {
 
       await payment.save();
 
-      // Create ticket records
-      const createdTickets = [];
+      // Create a single ticket record with quantity
       const expiryDate = new Date();
       expiryDate.setMonth(expiryDate.getMonth() + 6); // Tickets valid for 6 months
-      
-      for (let i = 0; i < quantityValue; i++) {
-        const ticket = new Ticket({
-          ticketNumber: `TKT-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-          eventId: event._id,
-          userId: user._id,
-          paymentId: payment._id,
-          ticketType: tierToType[ticketTier],
-          price: unitPrice,
-          status: 'VALID',
-          expiryDate: expiryDate,
-          metadata: {
-            tier: ticketTier,
-            createdByAdmin: true,
-          },
-        });
 
-        await ticket.save();
-        createdTickets.push(ticket);
-      }
+      const ticket = new Ticket({
+        ticketNumber: `TKT-${Date.now()}-${randomString}`,
+        eventId: event._id,
+        userId: user._id,
+        paymentId: payment._id,
+        ticketType: tierToType[ticketTier],
+        quantity: quantityValue,
+        price: unitPrice,
+        status: 'VALID',
+        expiryDate: expiryDate,
+        metadata: {
+          tier: ticketTier,
+          createdByAdmin: true,
+        },
+      });
 
-      payment.ticketIds = createdTickets.map((ticket) => ticket._id);
+      await ticket.save();
+      payment.ticketIds = [ticket._id];
       await payment.save();
+      const createdTickets = [ticket];
 
       const paymentDetails = {
         orderId: payment.orderId,
@@ -514,11 +550,11 @@ export class AdminController {
       };
 
       const emailPromise = user.email
-        ? emailService.sendPaymentConfirmation(user.email, user.fullName, paymentDetails)
+        ? emailService.sendPaymentConfirmation(user.email, user.fullName, paymentDetails, ticketTier)
         : Promise.resolve({ success: false, message: 'No email configured for user' });
 
       const whatsappPromise = user.mobile
-        ? whatsappService.sendPaymentConfirmation(user.mobile, user.fullName, paymentDetails)
+        ? whatsappService.sendPaymentConfirmation(user.mobile, user.fullName, paymentDetails, ticketTier)
         : Promise.resolve({ success: false, message: 'No mobile configured for user' });
 
       const sheetPromise = googleSheetsService.logAdminTicketCreation(
@@ -585,9 +621,9 @@ export class AdminController {
         userName: user.fullName,
         mobileNumber: user.mobile,
         ticketTier: ticketTier,
-        quantity: 1,
+        quantity: ticket.quantity || 1,
         unitPrice: unitPrice,
-        totalPrice: unitPrice,
+        totalPrice: unitPrice * (ticket.quantity || 1),
         status: ticket.status,
         paymentId: ticket.paymentId,
         qrCode: ticket.ticketNumber,

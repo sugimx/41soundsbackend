@@ -4,9 +4,42 @@ import { logger } from '../logger/logger.js';
 class GoogleSheetsService {
   constructor() {
     this.sheets = null;
-    this.spreadsheetId = process.env.GOOGLE_SHEET_ID;
+    this.spreadsheetId = process.env.GOOGLE_SHEET_ID || process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+    this.ticketsSheetName = process.env.GOOGLE_SHEETS_TICKETS_SHEET || 'Tickets';
     this.webhookSheetName = process.env.GOOGLE_SHEETS_WEBHOOK_SHEET || 'Webhooks';
     this.isInitialized = false;
+    this.sheetHeaders = {
+      [this.ticketsSheetName]: [
+        'S.No',
+        'Name',
+        'Phone Number',
+        'To',
+        'Tickets',
+        'Seat Category',
+        'Price',
+        'Transaction Date',
+        'BookingID',
+        'Seat Number',
+      ],
+      [this.webhookSheetName]: [
+        'Timestamp',
+        'Order ID',
+        'User ID',
+        'Amount (Paise)',
+        'Order Status',
+        'Payment Method',
+        'Transaction ID',
+        'Cashfree Payment ID',
+        'Description',
+        'Payment Status',
+        'Error Message',
+        'Email',
+        'Phone',
+        'Tickets Created',
+        'Email Sent',
+        'WhatsApp Sent',
+      ],
+    };
   }
 
   /**
@@ -52,17 +85,17 @@ class GoogleSheetsService {
   /**
    * Ensure worksheet exists, create if not
    */
-  async ensureSheetExists() {
+  async ensureSheetExists(sheetName) {
     try {
       const response = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
       });
 
       const sheets = response.data.sheets || [];
-      const sheetExists = sheets.some(sheet => sheet.properties.title === this.webhookSheetName);
+      const sheetExists = sheets.some(sheet => sheet.properties.title === sheetName);
 
       if (!sheetExists) {
-        logger.info(`Sheet '${this.webhookSheetName}' does not exist, creating it...`);
+        logger.info(`Sheet '${sheetName}' does not exist, creating it...`);
         await this.sheets.spreadsheets.batchUpdate({
           spreadsheetId: this.spreadsheetId,
           requestBody: {
@@ -70,7 +103,7 @@ class GoogleSheetsService {
               {
                 addSheet: {
                   properties: {
-                    title: this.webhookSheetName,
+                    title: sheetName,
                     gridProperties: {
                       rowCount: 1000,
                       columnCount: 15,
@@ -83,7 +116,7 @@ class GoogleSheetsService {
         });
 
         // Add header row
-        await this.addHeaderRow();
+        await this.addHeaderRow(sheetName, this.sheetHeaders[sheetName] || []);
       }
     } catch (error) {
       logger.error('Error ensuring sheet exists', {
@@ -96,42 +129,93 @@ class GoogleSheetsService {
   /**
    * Add header row to the sheet
    */
-  async addHeaderRow() {
+  async addHeaderRow(sheetName, headers) {
     try {
-      const headers = [
-        'Timestamp',
-        'Order ID',
-        'User ID',
-        'Amount (Paise)',
-        'Order Status',
-        'Payment Method',
-        'Transaction ID',
-        'Cashfree Payment ID',
-        'Description',
-        'Payment Status',
-        'Error Message',
-        'Email',
-        'Phone',
-        'Tickets Created',
-        'Email Sent',
-        'WhatsApp Sent',
-      ];
-
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
-        range: `${this.webhookSheetName}!A1`,
+        range: `${sheetName}!A1`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [headers],
         },
       });
 
-      logger.info('Header row added to Google Sheet');
+      logger.info(`Header row added to Google Sheet sheet=${sheetName}`);
     } catch (error) {
       logger.error('Error adding header row', {
         error: error.message,
       });
       throw error;
+    }
+  }
+
+  async appendRows(sheetName, values) {
+    await this.sheets.spreadsheets.values.append({
+      spreadsheetId: this.spreadsheetId,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values,
+      },
+    });
+  }
+
+  async getNextSerialNo(sheetName) {
+    const response = await this.sheets.spreadsheets.values.get({
+      spreadsheetId: this.spreadsheetId,
+      range: `${sheetName}!A2:A`,
+    });
+
+    const values = response.data.values || [];
+    const serials = values
+      .map(row => parseInt(row[0], 10))
+      .filter(value => !Number.isNaN(value));
+
+    return serials.length > 0 ? Math.max(...serials) + 1 : 1;
+  }
+
+  async logTicketData(details) {
+    try {
+      if (!this.spreadsheetId) {
+        logger.warn('Google Sheets spreadsheet ID not configured. Set GOOGLE_SHEET_ID or GOOGLE_SHEETS_SPREADSHEET_ID, skipping ticket logging');
+        return;
+      }
+
+      await this.initialize();
+      await this.ensureSheetExists(this.ticketsSheetName);
+
+      const serialNo = await this.getNextSerialNo(this.ticketsSheetName);
+      const transactionDate = details.transactionDate || new Date().toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+      });
+      const phoneNumber = details.customerPhone?.replace(/\D/g, '') || '';
+      const amount = details.orderAmount != null ? details.orderAmount.toString() : '0';
+
+      const rowData = [
+        [
+          serialNo.toString(),
+          details.customerName || 'N/A',
+          phoneNumber,
+          details.customerEmail?.toLowerCase().trim() || 'N/A',
+          details.numberOfTickets != null ? details.numberOfTickets.toString() : '0',
+          details.ticketCategory || 'Standard',
+          amount,
+          transactionDate,
+          details.orderId || 'N/A',
+          details.seatNumber || '',
+        ],
+      ];
+
+      await this.appendRows(this.ticketsSheetName, rowData);
+      logger.info('Ticket data logged to Google Sheet', {
+        orderId: details.orderId,
+        serialNo,
+      });
+    } catch (error) {
+      logger.error('Error logging ticket data to Google Sheet', {
+        error: error.message,
+      });
+      // Don't throw - ticket logging should not fail the main workflow
     }
   }
 
@@ -144,12 +228,12 @@ class GoogleSheetsService {
   async logWebhookData(webhookData, payment, user) {
     try {
       if (!this.spreadsheetId) {
-        logger.warn('GOOGLE_SHEETS_SPREADSHEET_ID not configured, skipping webhook logging');
+        logger.warn('Google Sheets spreadsheet ID not configured. Set GOOGLE_SHEET_ID or GOOGLE_SHEETS_SPREADSHEET_ID, skipping webhook logging');
         return;
       }
 
       await this.initialize();
-      await this.ensureSheetExists();
+      await this.ensureSheetExists(this.webhookSheetName);
 
       const { data } = webhookData;
       const order = data?.order || data;
@@ -176,14 +260,7 @@ class GoogleSheetsService {
       ];
 
       // Append data to sheet
-      await this.sheets.spreadsheets.values.append({
-        spreadsheetId: this.spreadsheetId,
-        range: `${this.webhookSheetName}!A:P`,
-        valueInputOption: 'USER_ENTERED',
-        requestBody: {
-          values: rowData,
-        },
-      });
+      await this.appendRows(this.webhookSheetName, rowData);
 
       logger.info('Webhook data logged to Google Sheet', {
         orderId: payment?.cashfreeOrderId,
@@ -205,12 +282,12 @@ class GoogleSheetsService {
   async logAdminTicketCreation(payment, user, ticketsCreatedCount = 0) {
     try {
       if (!this.spreadsheetId) {
-        logger.warn('GOOGLE_SHEETS_SPREADSHEET_ID not configured, skipping admin ticket logging');
+        logger.warn('Google Sheets spreadsheet ID not configured. Set GOOGLE_SHEET_ID or GOOGLE_SHEETS_SPREADSHEET_ID, skipping admin ticket logging');
         return;
       }
 
       await this.initialize();
-      await this.ensureSheetExists();
+      await this.ensureSheetExists(this.webhookSheetName);
 
       const rowData = [
         [
@@ -233,14 +310,7 @@ class GoogleSheetsService {
         ],
       ];
 
-      await this.sheets.spreadsheets.values.append({
-        spreadsheetId: this.spreadsheetId,
-        range: `${this.webhookSheetName}!A:P`,
-        valueInputOption: 'USER_ENTERED',
-        requestBody: {
-          values: rowData,
-        },
-      });
+      await this.appendRows(this.webhookSheetName, rowData);
 
       logger.info('Admin ticket creation logged to Google Sheet', {
         orderId: payment?.orderId,

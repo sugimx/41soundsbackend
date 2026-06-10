@@ -30,6 +30,11 @@ const ticketSchema = new mongoose.Schema(
       enum: ['Gold', 'Platinum', 'VIP', 'MVIP'],
       required: [true, 'Ticket type is required'],
     },
+    quantity: {
+      type: Number,
+      default: 1,
+      min: [1, 'Quantity must be at least 1'],
+    },
     price: {
       type: Number,
       required: [true, 'Price is required'],

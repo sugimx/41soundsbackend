@@ -10,9 +10,10 @@ export class WhatsAppService {
    * @param {string} phoneNumber - Recipient phone number (with country code, e.g., +91XXXXXXXXXX)
    * @param {string} userName - Recipient name
    * @param {Object} paymentDetails - Payment details object
+   * @param {string} ticketTier - Ticket tier (e.g., 'VIP', 'General')
    * @returns {Promise<Object>} Send result
    */
-  async sendPaymentConfirmation(phoneNumber, userName, paymentDetails) {
+  async sendPaymentConfirmation(phoneNumber, userName, paymentDetails, ticketTier) {
     try {
       // Validate configuration
       if (!process.env.WHATSAPP_ACCESS_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
@@ -51,7 +52,7 @@ export class WhatsAppService {
               type: 'body',
               parameters: [
                 { type: 'text', text: userName },
-                { type: 'text', text: paymentDetails.description || 'Concert Ticket' },
+                { type: 'text', text: ticketTier || 'Concert Ticket' },
                 { type: 'text', text: paymentDetails.orderId },
                 { type: 'text', text: formattedDate },
                 { type: 'text', text: String(paymentDetails.amount) },

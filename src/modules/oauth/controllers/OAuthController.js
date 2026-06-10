@@ -103,6 +103,7 @@ export class OAuthController {
           profileImage: user.profileImage,
           isActive: user.isActive,
           createdAt: user.createdAt,
+          role: user.role || 'user',
         },
       });
     } catch (error) {

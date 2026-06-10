@@ -3,6 +3,9 @@ import { Ticket } from '../../tickets/models/Ticket.js';
 import { Payment } from '../../payment/models/Payment.js';
 import { SupportTicket } from '../../support/models/SupportTicket.js';
 import { Event } from '../../events/models/Event.js';
+import { emailService } from '../../../shared/email/emailService.js';
+import { whatsappService } from '../../../shared/whatsapp/whatsappService.js';
+import { googleSheetsService } from '../../../shared/googlesheets/googleSheetsService.js';
 
 /**
  * Admin Dashboard Controller
@@ -381,25 +384,25 @@ export class AdminController {
 
       // Tier price mapping
       const tierPrices = {
-        Rocker: 500,
         Gold: 800,
         Platinum: 1200,
         VIP: 2000,
+        MVIP: 5000,
       };
 
       if (!tierPrices[ticketTier]) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid ticket tier. Must be one of: Rocker, Gold, Platinum, VIP',
+          message: 'Invalid ticket tier. Must be one of: Gold, Platinum, VIP, MVIP',
         });
       }
 
       // Tier to ticket type mapping
       const tierToType = {
-        Rocker: 'Regular',
-        Gold: 'Premium',
+        Gold: 'Gold',
         Platinum: 'Premium',
         VIP: 'VIP',
+        MVIP: 'MVIP',
       };
 
       // Find or create user
@@ -452,7 +455,7 @@ export class AdminController {
           quantity: quantity,
         },
         orderDetails: {
-          itemCount: 1,
+          itemCount: quantity,
           items: [
             {
               name: `${ticketTier} Ticket`,
@@ -463,6 +466,10 @@ export class AdminController {
           ],
         },
         completedAt: new Date(),
+        notificationStatus: {
+          email: { sent: false },
+          whatsapp: { sent: false },
+        },
       });
 
       await payment.save();
@@ -492,6 +499,78 @@ export class AdminController {
         createdTickets.push(ticket);
       }
 
+      payment.ticketIds = createdTickets.map((ticket) => ticket._id);
+      await payment.save();
+
+      const paymentDetails = {
+        orderId: payment.orderId,
+        amount: payment.amount,
+        description: payment.description,
+        paymentMethod: payment.paymentMethod,
+        transactionId: payment.transactionId || '',
+        completedAt: payment.completedAt,
+      };
+
+      const emailPromise = user.email
+        ? emailService.sendPaymentConfirmation(user.email, user.fullName, paymentDetails)
+        : Promise.resolve({ success: false, message: 'No email configured for user' });
+
+      const whatsappPromise = user.mobile
+        ? whatsappService.sendPaymentConfirmation(user.mobile, user.fullName, paymentDetails)
+        : Promise.resolve({ success: false, message: 'No mobile configured for user' });
+
+      const sheetPromise = googleSheetsService.logAdminTicketCreation(
+        payment,
+        user,
+        createdTickets.length
+      );
+
+      const [emailResult, whatsappResult] = await Promise.allSettled([
+        emailPromise,
+        whatsappPromise,
+        sheetPromise,
+      ]);
+
+      if (!payment.notificationStatus) {
+        payment.notificationStatus = { email: {}, whatsapp: {} };
+      }
+
+      if (emailResult.status === 'fulfilled' && emailResult.value?.success) {
+        payment.notificationStatus.email = {
+          sent: true,
+          messageId: emailResult.value.messageId || 'sent',
+          sentAt: new Date(),
+        };
+      } else {
+        payment.notificationStatus.email = {
+          sent: false,
+          error: emailResult.status === 'rejected' ? emailResult.reason?.message : emailResult.value?.error || emailResult.value?.message,
+          sentAt: new Date(),
+        };
+        if (emailResult.status === 'rejected') {
+          console.error('Email notification error:', emailResult.reason);
+        }
+      }
+
+      if (whatsappResult.status === 'fulfilled' && whatsappResult.value?.success) {
+        payment.notificationStatus.whatsapp = {
+          sent: true,
+          messageId: whatsappResult.value.messageId || 'sent',
+          sentAt: new Date(),
+        };
+      } else {
+        payment.notificationStatus.whatsapp = {
+          sent: false,
+          error: whatsappResult.status === 'rejected' ? whatsappResult.reason?.message : whatsappResult.value?.error || whatsappResult.value?.message,
+          sentAt: new Date(),
+        };
+        if (whatsappResult.status === 'rejected') {
+          console.error('WhatsApp notification error:', whatsappResult.reason);
+        }
+      }
+
+      await payment.save();
+
       // Format response
       const responseTickets = createdTickets.map(ticket => ({
         _id: ticket._id,
@@ -518,6 +597,8 @@ export class AdminController {
           ticketsCreated: quantity,
           totalAmount: totalPrice,
           orderId: orderId,
+          emailNotification: payment.notificationStatus.email,
+          whatsappNotification: payment.notificationStatus.whatsapp,
         },
       });
     } catch (error) {

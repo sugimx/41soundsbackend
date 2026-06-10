@@ -197,6 +197,63 @@ class GoogleSheetsService {
   }
 
   /**
+   * Log admin ticket creation data to Google Sheet
+   * @param {Object} payment - The payment record
+   * @param {Object} user - The user details
+   * @param {number} ticketsCreatedCount - Number of tickets created by admin
+   */
+  async logAdminTicketCreation(payment, user, ticketsCreatedCount = 0) {
+    try {
+      if (!this.spreadsheetId) {
+        logger.warn('GOOGLE_SHEETS_SPREADSHEET_ID not configured, skipping admin ticket logging');
+        return;
+      }
+
+      await this.initialize();
+      await this.ensureSheetExists();
+
+      const rowData = [
+        [
+          new Date().toISOString(),
+          payment?.orderId || 'N/A',
+          user?._id?.toString() || 'N/A',
+          payment?.amount != null ? Math.round(payment.amount * 100).toString() : 'N/A',
+          payment?.status || 'SUCCESS',
+          payment?.paymentMethod || 'UNKNOWN',
+          payment?.transactionId || payment?.cashfreePaymentId || 'N/A',
+          payment?.cashfreePaymentId || 'N/A',
+          payment?.description || 'Admin ticket creation',
+          payment?.status || 'SUCCESS',
+          '',
+          user?.email || 'N/A',
+          user?.mobile || 'N/A',
+          ticketsCreatedCount.toString(),
+          payment?.notificationStatus?.email?.sent ? 'Yes' : 'No',
+          payment?.notificationStatus?.whatsapp?.sent ? 'Yes' : 'No',
+        ],
+      ];
+
+      await this.sheets.spreadsheets.values.append({
+        spreadsheetId: this.spreadsheetId,
+        range: `${this.webhookSheetName}!A:P`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: rowData,
+        },
+      });
+
+      logger.info('Admin ticket creation logged to Google Sheet', {
+        orderId: payment?.orderId,
+      });
+    } catch (error) {
+      logger.error('Error logging admin ticket creation to Google Sheet', {
+        error: error.message,
+      });
+      // Don't throw - admin notification should not fail ticket creation
+    }
+  }
+
+  /**
    * Get all webhook logs from sheet
    * @param {number} limit - Maximum number of rows to retrieve
    */

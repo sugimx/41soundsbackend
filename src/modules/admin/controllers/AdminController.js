@@ -373,12 +373,13 @@ export class AdminController {
   async createTicket(req, res) {
     try {
       const { userEmail, userName, mobileNumber, ticketTier, quantity } = req.body;
+      const quantityValue = parseInt(quantity, 10);
 
       // Validate required fields
-      if (!userEmail || !userName || !ticketTier || !quantity) {
+      if (!userEmail || !userName || !ticketTier || Number.isNaN(quantityValue) || quantityValue < 1) {
         return res.status(400).json({
           success: false,
-          message: 'Missing required fields: userEmail, userName, ticketTier, quantity',
+          message: 'Missing or invalid required fields: userEmail, userName, ticketTier, quantity',
         });
       }
 
@@ -400,7 +401,7 @@ export class AdminController {
       // Tier to ticket type mapping
       const tierToType = {
         Gold: 'Gold',
-        Platinum: 'Premium',
+        Platinum: 'Platinum',
         VIP: 'VIP',
         MVIP: 'MVIP',
       };
@@ -437,7 +438,7 @@ export class AdminController {
 
       // Calculate total price
       const unitPrice = tierPrices[ticketTier];
-      const totalPrice = unitPrice * quantity;
+      const totalPrice = unitPrice * quantityValue;
 
       // Create payment record
       const orderId = `ADM-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
@@ -448,18 +449,19 @@ export class AdminController {
         amount: totalPrice,
         status: 'SUCCESS',
         paymentMethod: 'UNKNOWN', // Set to UNKNOWN since admin is creating it
-        description: `Admin created ${quantity} ${ticketTier} ticket(s)`,
+        description: `Admin created ${quantityValue} ${ticketTier} ticket(s)`,
         metadata: {
           createdByAdmin: true,
           ticketTier: ticketTier,
-          quantity: quantity,
+          quantity: quantityValue,
+          eventId: event._id,
         },
         orderDetails: {
-          itemCount: quantity,
+          itemCount: quantityValue,
           items: [
             {
               name: `${ticketTier} Ticket`,
-              quantity,
+              quantity: quantityValue,
               unitPrice,
               totalPrice,
             },
@@ -479,7 +481,7 @@ export class AdminController {
       const expiryDate = new Date();
       expiryDate.setMonth(expiryDate.getMonth() + 6); // Tickets valid for 6 months
       
-      for (let i = 0; i < quantity; i++) {
+      for (let i = 0; i < quantityValue; i++) {
         const ticket = new Ticket({
           ticketNumber: `TKT-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
           eventId: event._id,
@@ -525,11 +527,15 @@ export class AdminController {
         createdTickets.length
       );
 
-      const [emailResult, whatsappResult] = await Promise.allSettled([
+      const [emailResult, whatsappResult, sheetResult] = await Promise.allSettled([
         emailPromise,
         whatsappPromise,
         sheetPromise,
       ]);
+
+      if (sheetResult.status === 'rejected') {
+        console.error('Google Sheets notification error:', sheetResult.reason);
+      }
 
       if (!payment.notificationStatus) {
         payment.notificationStatus = { email: {}, whatsapp: {} };
@@ -591,10 +597,10 @@ export class AdminController {
 
       return res.status(201).json({
         success: true,
-        message: `${quantity} ticket(s) created successfully`,
+        message: `${quantityValue} ticket(s) created successfully`,
         data: responseTickets[0], // Return first ticket as example
         summary: {
-          ticketsCreated: quantity,
+          ticketsCreated: quantityValue,
           totalAmount: totalPrice,
           orderId: orderId,
           emailNotification: payment.notificationStatus.email,

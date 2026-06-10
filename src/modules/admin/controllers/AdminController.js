@@ -645,10 +645,12 @@ export class AdminController {
       });
     } catch (error) {
       console.error('Error creating ticket:', error);
+      const isProd = process.env.NODE_ENV === 'production';
       return res.status(500).json({
         success: false,
         message: 'Failed to create ticket',
         error: error.message,
+        ...(isProd ? {} : { stack: error.stack }),
       });
     }
   }

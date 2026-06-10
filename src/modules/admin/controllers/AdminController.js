@@ -487,7 +487,7 @@ export class AdminController {
         orderId,
         amount: totalPrice,
         status: 'SUCCESS',
-        paymentMethod: 'Direct', // Set to UNKNOWN since admin is creating it
+        paymentMethod: 'DIRECT', // Admin-created payments use UNKNOWN as a fallback
         description: `Admin created ${quantityValue} ${ticketTier} ticket(s)`,
         metadata: {
           createdByAdmin: true,

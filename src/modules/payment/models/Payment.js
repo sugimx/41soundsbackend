@@ -62,7 +62,7 @@ const paymentSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ['UPI', 'CARD', 'NETBANKING', 'WALLET', 'UNKNOWN'],
+      enum: ['UPI', 'CARD', 'NETBANKING', 'WALLET', 'UNKNOWN', 'DIRECT'],
       default: 'UNKNOWN',
     },
     cashfreeOrderId: {

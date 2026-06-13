@@ -1273,13 +1273,25 @@ export class AdminController {
       const totalTickets = await Ticket.countDocuments();
       const avgTicketValue = totalRevenue / (totalTickets || 1);
 
+      // Compute conversion rate and customer retention from actual payments
+      const paymentsByUser = await Payment.aggregate([
+        { $match: { status: 'SUCCESS', createdAt: { $gte: startDate } } },
+        { $group: { _id: '$userId', count: { $sum: 1 }, total: { $sum: '$amount' } } },
+      ]);
+
+      const uniquePayingUsers = paymentsByUser.filter(p => p._id).length;
+      const conversionRate = totalUsers ? Math.round((uniquePayingUsers / totalUsers) * 100) : 0;
+
+      const repeatBuyers = paymentsByUser.filter(p => p.count > 1).length;
+      const customerRetention = uniquePayingUsers ? Math.round((repeatBuyers / uniquePayingUsers) * 100) : 0;
+
       return res.json({
         success: true,
         data: {
           avgRevenuePerDay: Math.round(avgRevenuePerDay),
-          conversionRate: 85, // Placeholder - calculate based on your logic
+          conversionRate,
           avgTicketValue: Math.round(avgTicketValue),
-          customerRetention: 92, // Placeholder - calculate based on your logic
+          customerRetention,
           revenueTrend,
           userGrowth,
           ticketsByTier,

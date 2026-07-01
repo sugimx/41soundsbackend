@@ -298,17 +298,25 @@ This is an automated email. Please do not reply to this email.
         return { success: false, message: 'Email service not configured' };
       }
 
-      const eventName = ticketDetails?.eventName || 'Muthamazhai 2.0';
+      const qrImage = await qrCodeService.generateQRCodeDataURL(ticketDetails.ticketNumber);
 
-      const qrImage = ticketDetails.qrCodeImage || ticketDetails.qrCode?.data ||
-        await qrCodeService.generateQRCodeDataURL(ticketDetails.ticketNumber);
+        const qrBase64 = qrImage.replace(/^data:image\/png;base64,/, "");
       
       const mailOptions = {
         from: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
         to: userEmail,
-        subject: `Your Event Ticket - ${eventName} - 41Sounds`,
+        subject: `Your Event Ticket - Muthamazhai 2.0 - 41Sounds`,
         html: this.generateTicketDeliveryHTML(userName, ticketDetails, qrImage),
         text: this.generateTicketDeliveryText(userName, ticketDetails),
+         attachments: [
+          {
+            filename: "ticket-qr.png",
+            content: qrBase64,
+            encoding: "base64",
+            cid: "ticketqr",
+            contentType: "image/png",
+          },
+        ],
       };
 
       const result = await emailTransporter.sendMail(mailOptions);
@@ -341,6 +349,8 @@ This is an automated email. Please do not reply to this email.
       'en-IN',
       { year: 'numeric', month: 'long', day: 'numeric' }
     );
+
+    console.log(qrImage);
 
     return `
       <!DOCTYPE html>
@@ -382,7 +392,7 @@ This is an automated email. Please do not reply to this email.
             .ticket-badge {
               display: inline-block;
               background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
+              color: #ffffff;
               padding: 10px 15px;
               border-radius: 50px;
               font-size: 12px;
@@ -390,7 +400,7 @@ This is an automated email. Please do not reply to this email.
             }
             .event-section {
               background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
+              color: #ffffff;
               padding: 25px;
               border-radius: 8px;
               margin: 20px 0;
@@ -477,7 +487,7 @@ This is an automated email. Please do not reply to this email.
             .cta-button {
               display: inline-block;
               background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
+              color: #ffffff !important;
               padding: 12px 30px;
               text-decoration: none;
               border-radius: 50px;
@@ -498,13 +508,13 @@ This is an automated email. Please do not reply to this email.
             <p>Thank you for your purchase! Your ticket for the upcoming event is now ready. Please find all the details below.</p>
 
             <div class="event-section">
-              <h2>${ticketDetails.eventName}</h2>
-              <div class="event-date">📅 ${eventDate}</div>
+              <h2>Muthamazhai 2.0</h2>
+              <div class="event-date">📅 18 July 2026</div>
             </div>
 
             <div class="qr-section">
               <p><strong>Your QR Code</strong></p>
-              <img src="${qrImage}" alt="Ticket QR Code" style="max-width:250px;height:auto;border-radius:8px;" />
+              <img src="cid:ticketqr" alt="Ticket QR Code" style="max-width:250px;height:auto;border-radius:8px;" />
               <div class="qr-label">Show this QR code at the venue for entry</div>
             </div>
 
@@ -516,6 +526,10 @@ This is an automated email. Please do not reply to this email.
               <div class="detail-box">
                 <span class="detail-label">Ticket Type</span>
                 <span class="detail-value">${ticketDetails.ticketType}</span>
+              </div>
+              <div class="detail-box">
+                <span class="detail-label">Quantity</span>
+                <span class="detail-value">${ticketDetails.quantity}</span>
               </div>
               <div class="detail-box">
                 <span class="detail-label">Price</span>
@@ -534,26 +548,21 @@ This is an automated email. Please do not reply to this email.
                 <li>Arrive 15-30 minutes before the event starts</li>
                 <li>Present your QR code at the entrance</li>
                 <li>Keep your ticket safe and secure</li>
-                <li>This ticket is non-transferable unless permitted</li>
               </ul>
             </div>
 
             <p><strong>Venue Details:</strong></p>
             <p>
-              📍 ${ticketDetails.venue?.name || 'TBD'}<br>
-              ${ticketDetails.venue?.address || ''}<br>
-              ${ticketDetails.venue?.city || ''}, ${ticketDetails.venue?.state || ''}
+              📍 Hindustan Concert Ground, Coimbatore, Tamilnadu
             </p>
 
-            <p>Valid until: ${new Date(ticketDetails.expiryDate).toLocaleDateString('en-IN')}</p>
-
             <center>
-              <a href="${process.env.APP_URL || 'https://www.41sounds.com'}" class="cta-button">Visit 41Sounds</a>
+              <a href="${'https://www.41sounds.com'}" class="cta-button">Visit 41Sounds</a>
             </center>
 
             <div class="footer">
               <p>If you have any questions, please contact our support team.</p>
-              <p>&copy; 2024 41Sounds. All rights reserved.</p>
+              <p>&copy; 2026 41Sounds. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -578,13 +587,14 @@ Hello ${userName},
 
 Your ticket for the event is ready!
 
-EVENT: ${ticketDetails.eventName}
-DATE: ${eventDate}
+EVENT: Muthamazhai 2.0
+DATE: 18 July 2026
 
 TICKET DETAILS:
 ---
 Ticket Number: ${ticketDetails.ticketNumber}
 Type: ${ticketDetails.ticketType}
+Quantity: ${ticketDetails.quantity}
 Price: ₹${ticketDetails.price}
 Seat: ${ticketDetails.seatNumber}
 
@@ -594,17 +604,14 @@ IMPORTANT:
 - Arrive 15-30 minutes before the event
 - Keep your ticket safe
 - This ticket is non-transferable
-- Valid until: ${new Date(ticketDetails.expiryDate).toLocaleDateString('en-IN')}
 
 VENUE:
-${ticketDetails.venue?.name || 'TBD'}
-${ticketDetails.venue?.address || ''}
-${ticketDetails.venue?.city || ''}, ${ticketDetails.venue?.state || ''}
+Hindustan Concert Ground, Coimbatore, Tamilnadu
 
 If you have any questions, contact our support team.
 
 ---
-© 2024 41Sounds. All rights reserved.
+© 2026 41Sounds. All rights reserved.
     `;
   }
 

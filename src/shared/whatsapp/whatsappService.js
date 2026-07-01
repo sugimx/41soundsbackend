@@ -144,7 +144,7 @@ export class WhatsAppService {
                 {
                   type: "document",
                   document: {
-                    link: "https://41Sounds.com/tickets/CFPAY_VIPSEAT_A685_1781018756248.pdf",
+                    link: `https://41sounds.com/ticket/${paymentDetails.orderId}/pdf`,
                     filename: "Ticket.pdf"
                   }
                 }

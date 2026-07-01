@@ -350,8 +350,6 @@ This is an automated email. Please do not reply to this email.
       { year: 'numeric', month: 'long', day: 'numeric' }
     );
 
-    console.log(qrImage);
-
     return `
       <!DOCTYPE html>
       <html>

@@ -513,7 +513,7 @@ export class AdminController {
       expiryDate.setMonth(expiryDate.getMonth() + 6); // Tickets valid for 6 months
 
       const ticket = new Ticket({
-        ticketNumber: `TKT-${Date.now()}-${randomString}`,
+        ticketNumber: `ADPay_${ticketTier}_${randomString}`,
         eventId: event._id,
         userId: user?._id,
         fullName: customer.fullName,
@@ -1379,7 +1379,7 @@ export class AdminController {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const workbook = XLSX.readFile(req.file.buffer, { type: "buffer" });
+      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
 
@@ -1391,24 +1391,8 @@ export class AdminController {
         blankrows: false,
       });
 
-      console.log("SHEET NAME:", sheetName);
-      console.log("ROWS LENGTH:", rows.length);
-
-      // const tickets = rows.map((row) => ({
-      //   ticketNumber: row.ticketNumber,
-      //   eventId: row.eventId,
-      //   userId: row.userId,
-      //   paymentId: row.paymentId,
-      //   ticketType: row.ticketType,
-      //   quantity: Number(row.quantity || 1),
-      //   price: Number(row.price || 0),
-      //   seatSection: row.seatSection || null,
-      //   seatNumber: row.seatNumber || null,
-      //   status: row.status || "VALID",
-      //   expiryDate: new Date(row.expiryDate),
-      //   notes: row.notes || null,
-      //   metadata: { source: "excel-import" },
-      // }));
+      const customExpiry = new Date();
+      customExpiry.setDate(customExpiry.getDate() + 60);
 
       const ticketNumbers = rows.map(row => row.BookingID);
 
@@ -1435,7 +1419,7 @@ export class AdminController {
         seatSection: row["Seat Category"],
         seatNumber: row["Seat Number"],
 
-        expiryDate: row["Transaction Date"] ? new Date(row["Transaction Date"]) : new Date(), // reuse date if no expiry provided
+        expiryDate: customExpiry, // reuse date if no expiry provided
 
         status: "VALID",
 

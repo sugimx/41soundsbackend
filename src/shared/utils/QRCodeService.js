@@ -107,16 +107,9 @@ export class QRCodeService {
    */
   async generateTicketQRCode(ticket) {
     try {
-      // Create data to encode: ticket number and QR code value
-      const qrData = JSON.stringify({
-        ticketNumber: ticket.ticketNumber,
-        qrValue: ticket.qrCode.value,
-        eventId: ticket.eventId.toString(),
-        ticketType: ticket.ticketType,
-        validUntil: ticket.expiryDate.toISOString(),
-      });
+      const qrData = ticket.ticketNumber;
 
-      // Generate QR code as data URL
+      // Generate QR code as data URL using only ticket number
       const dataURL = await this.generateQRCodeDataURL(qrData);
 
       logger.info('Ticket QR code generated', {
@@ -173,11 +166,15 @@ export class QRCodeService {
    */
   validateAndDecodeQRData(qrData) {
     try {
+      // If the QR payload is plain text, return it as ticketNumber
+      if (typeof qrData === 'string') {
+        return { ticketNumber: qrData };
+      }
+
       const decoded = JSON.parse(qrData);
 
-      // Validate required fields
-      if (!decoded.ticketNumber || !decoded.qrValue) {
-        throw new Error('Invalid QR code data: missing required fields');
+      if (!decoded.ticketNumber) {
+        throw new Error('Invalid QR code data: missing required ticketNumber');
       }
 
       return decoded;

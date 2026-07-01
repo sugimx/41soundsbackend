@@ -6,6 +6,8 @@ import { Event } from '../../events/models/Event.js';
 import { emailService } from '../../../shared/email/emailService.js';
 import { whatsappService } from '../../../shared/whatsapp/whatsappService.js';
 import { googleSheetsService } from '../../../shared/googlesheets/googleSheetsService.js';
+import XLSX from "xlsx";
+import fs from "fs";
 
 /**
  * Admin Dashboard Controller
@@ -212,8 +214,9 @@ export class AdminController {
       const data = tickets.map((ticket) => ({
         _id: ticket._id,
         userId: ticket.userId?._id,
-        userEmail: ticket.userId?.email,
-        userName: ticket.userId?.fullName,
+        userEmail: ticket.email || ticket.userId?.email,
+        userName: ticket.fullName || ticket.userId?.fullName,
+        userMobile: ticket.mobile || ticket.userId?.mobile,
         ticketTier: ticket.ticketType,
         quantity: ticket.quantity || 1, // Each ticket is 1
         unitPrice: ticket.price,
@@ -419,24 +422,14 @@ export class AdminController {
         MVIP: 'MVIP',
       };
 
-      // Find or create user
+      // Find user
       let user = await User.findOne({ email: userEmail });
-      
-      if (!user) {
-        user = new User({
-          email: userEmail,
-          fullName: userName,
-          mobile: mobileNumber || null,
-          password: null, // Admin-created users can set password later
-        });
-      } else {
-        // Update mobile if provided
-        if (mobileNumber) {
-          user.mobile = mobileNumber;
-        }
-      }
 
-      await user.save();
+      const customer = {
+        fullName: userName || user?.fullName || 'Guest User',
+        email: userEmail || user?.email || null,
+        mobile: mobileNumber || user?.mobile || null,
+      };
 
       // Get event ID (prefer active event, otherwise any event, otherwise create a default)
       let event = await Event.findOne({ status: 'ACTIVE' });
@@ -481,9 +474,9 @@ export class AdminController {
 
       // Create payment record
       const orderId = `ADM-${Date.now()}-${randomString}`;
-      
+
       const payment = new Payment({
-        userId: user._id,
+        userId: user?._id,
         orderId,
         amount: totalPrice,
         status: 'SUCCESS',
@@ -522,7 +515,10 @@ export class AdminController {
       const ticket = new Ticket({
         ticketNumber: `TKT-${Date.now()}-${randomString}`,
         eventId: event._id,
-        userId: user._id,
+        userId: user?._id,
+        fullName: customer.fullName,
+        email: customer.email,
+        mobile: customer.mobile,
         paymentId: payment._id,
         ticketType: tierToType[ticketTier],
         quantity: quantityValue,
@@ -549,24 +545,25 @@ export class AdminController {
         completedAt: payment.completedAt,
       };
 
-      const emailPromise = user.email
-        ? emailService.sendPaymentConfirmation(user.email, user.fullName, paymentDetails, ticketTier)
+      const emailPromise = customer.email
+        ? emailService.sendPaymentConfirmation(customer.email, customer.fullName, paymentDetails, ticketTier)
         : Promise.resolve({ success: false, message: 'No email configured for user' });
 
-      const whatsappPromise = user.mobile
-        ? whatsappService.sendPaymentConfirmation(user.mobile, user.fullName, paymentDetails, ticketTier)
+      const whatsappPromise = customer.mobile
+        ? whatsappService.sendPaymentConfirmation(customer.mobile, customer.fullName, paymentDetails, ticketTier)
         : Promise.resolve({ success: false, message: 'No mobile configured for user' });
 
       const sheetPromise = googleSheetsService.logAdminTicketCreation(
         payment,
         user,
+        customer,
         createdTickets.length
       );
 
       const ticketSheetPromise = googleSheetsService.logTicketData({
-        customerName: user.fullName,
-        customerPhone: user.mobile,
-        customerEmail: user.email,
+        customerName: customer.fullName,
+        customerPhone: customer.mobile,
+        customerEmail: customer.email,
         numberOfTickets: quantityValue,
         ticketCategory: ticketTier,
         orderAmount: unitPrice,
@@ -630,9 +627,9 @@ export class AdminController {
       const responseTickets = createdTickets.map(ticket => ({
         _id: ticket._id,
         userId: ticket.userId,
-        userEmail: user.email,
-        userName: user.fullName,
-        mobileNumber: user.mobile,
+        userEmail: customer.email,
+        userName: customer.fullName,
+        mobileNumber: customer.mobile,
         ticketTier: ticketTier,
         quantity: ticket.quantity || 1,
         unitPrice: unitPrice,
@@ -1370,6 +1367,347 @@ export class AdminController {
       });
     }
   }
+
+
+  /**
+   * Import tickets excel
+   * POST /api/admin/importExcel
+   */
+  async importExcel(req, res) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const workbook = XLSX.readFile(req.file.path);
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+
+      // const rows = XLSX.utils.sheet_to_json(sheet);
+
+      const rows = XLSX.utils.sheet_to_json(sheet, {
+        defval: "",
+        raw: false,
+        blankrows: false,
+      });
+
+      console.log("SHEET NAME:", sheetName);
+      console.log("ROWS LENGTH:", rows.length);
+
+      // const tickets = rows.map((row) => ({
+      //   ticketNumber: row.ticketNumber,
+      //   eventId: row.eventId,
+      //   userId: row.userId,
+      //   paymentId: row.paymentId,
+      //   ticketType: row.ticketType,
+      //   quantity: Number(row.quantity || 1),
+      //   price: Number(row.price || 0),
+      //   seatSection: row.seatSection || null,
+      //   seatNumber: row.seatNumber || null,
+      //   status: row.status || "VALID",
+      //   expiryDate: new Date(row.expiryDate),
+      //   notes: row.notes || null,
+      //   metadata: { source: "excel-import" },
+      // }));
+
+      const ticketNumbers = rows.map(row => row.BookingID);
+
+      const existingTickets = await Ticket.find(
+        { ticketNumber: { $in: ticketNumbers } },
+        { ticketNumber: 1 }
+      );
+
+      const existingSet = new Set(
+        existingTickets.map(ticket => ticket.ticketNumber)
+      );
+
+      const ticketsToInsert = rows.filter(row => !existingSet.has(row.BookingID)).map((row) => ({
+        ticketNumber: row.BookingID,               // ✔ BookingID → ticketNumber
+        userName: row.Name,
+        mobile: row["Phone Number"],
+        email: row.To,
+        fullName: row.Name,
+        mobile: row["Phone Number"],
+        ticketType: row["Seat Category"],          // VIP / MVIP etc
+        quantity: Number(row.Tickets || 1),
+
+        price: Number(row.Price || 0),
+
+        seatSection: row["Seat Category"],
+        seatNumber: row["Seat Number"],
+
+        expiryDate: new Date(row["Transaction Date"]), // reuse date if no expiry provided
+
+        status: "VALID",
+
+        metadata: {
+          source: "excel-import",
+          transactionDate: row["Transaction Date"],
+          serial: row["S.No"],
+        },
+      }));
+
+
+      const inserted = await Ticket.insertMany(ticketsToInsert);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          inserted: inserted.length,
+          total: rows.length,
+          skipped: existingSet.size
+        }
+      });
+
+    } catch (err) {
+      console.error("Excel import error:", err);
+
+      // IMPORTANT: prevent double response crash
+      if (!res.headersSent) {
+        return res.status(500).json({
+          message: "Excel import failed",
+          error: err.message,
+        });
+      }
+    } finally {
+      if (req.file?.path) {
+        fs.unlink(req.file.path, () => { });
+      }
+    }
+  }
+
+  async sendTicketEmail(req, res) {
+    try {
+      const { ticketId } = req.body;
+
+      const ticket = await Ticket.findById(ticketId);
+      if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
+
+      const email = ticket.email || ticket.userId?.email;
+      const name = ticket.fullName || ticket.userId?.fullName;
+
+      if (!email) {
+        return res.status(400).json({ message: 'No email on ticket' });
+      }
+
+      const result = await emailService.sendTicketDelivery(email, name, ticket);
+
+      if (result.success) {
+      ticket.emailSent = true;
+      }
+
+      await ticket.save();
+
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ message: err.message });
+    }
+  }
+
+  async sendTicketWhatsApp(req, res) {
+    try {
+      const { ticketId } = req.body;
+
+      const ticket = await Ticket.findById(ticketId);
+      if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
+
+      const mobile = ticket.mobile || ticket.userId?.mobile;
+      const name = ticket.fullName || ticket.userId?.fullName;
+
+      if (!mobile) {
+        return res.status(400).json({ message: 'No phone number on ticket' });
+      }
+
+      const ticketDetails = {
+        orderId: ticket.ticketNumber,
+        amount: ticket.price,
+        ticketTier: ticket.ticketType,
+        completedAt: ticket.expiryDate,
+        seatSection: ticket.seatSection,
+        seatNumber: ticket.seatNumber,
+        ticketQuantity: ticket.quantity,
+      };
+
+      const result = await whatsappService.sendTicketDelivery(mobile, name, ticketDetails);
+
+      if (result.success) {
+      ticket.whatsappSent = true;
+      }
+
+      await ticket.save();
+
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ message: err.message });
+    }
+  }
+
+  async sendTicketBoth(req, res) {
+    try {
+      const { ticketId } = req.body;
+
+      const ticket = await Ticket.findById(ticketId);
+      if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
+
+      const email = ticket.email || ticket.userId?.email;
+      const mobile = ticket.mobile || ticket.userId?.mobile;
+      const name = ticket.fullName || ticket.userId?.fullName;
+
+      const ticketDetails = {
+        orderId: ticket.ticketNumber,
+        amount: ticket.price,
+        ticketTier: ticket.ticketType,
+        completedAt: ticket.expiryDate,
+        seatSection: ticket.seatSection,
+        seatNumber: ticket.seatNumber,
+        ticketQuantity: ticket.quantity,
+      };
+
+      await Promise.allSettled([
+        ticket.email && emailService.sendTicketDelivery(email, name, ticket),
+        ticket.mobile && whatsappService.sendTicketDelivery(mobile, name, ticketDetails),
+      ]);
+
+      ticket.emailSent = true;
+      ticket.whatsappSent = true;
+
+      await ticket.save();
+
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ message: err.message });
+    }
+  }
+
+  async sendBulkTickets(req, res) {
+    try {
+      const tickets = await Ticket.find({ emailSent: false });
+
+      let success = 0;
+
+      for (const t of tickets) {
+
+        const email = t.email || t.userId?.email;
+        const mobile = t.mobile || t.userId?.mobile;
+        const name = t.fullName || t.userId?.fullName;
+
+        const ticketDetails = {
+          orderId: t.ticketNumber,
+          amount: t.price,
+          ticketTier: t.ticketType,
+          completedAt: t.expiryDate,
+          eatSection: t.seatSection,
+          seatNumber: t.seatNumber,
+          ticketQuantity: t.quantity,
+        };
+
+        try {
+          if (t.email) await emailService.sendTicketDelivery(email, name, t);
+          if (t.mobile) await whatsappService.sendTicketDelivery(mobile, name, ticketDetails);
+
+          t.emailSent = true;
+          t.whatsappSent = true;
+          await t.save();
+
+          success++;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      return res.json({
+        success: true,
+        sent: success,
+        total: tickets.length,
+      });
+    } catch (err) {
+      return res.status(500).json({ message: err.message });
+    }
+  }
+
+  async scanQR(req, res) {
+    try {
+      const { ticketId } = req.body;
+
+      if (!ticketId) {
+        return res.status(400).json({
+          valid: false,
+          message: 'Ticket ID is required',
+        });
+      }
+
+      const ticket = await Ticket.findOne({
+        ticketNumber: ticketId,
+      });
+
+      if (!ticket) {
+        return res.status(404).json({
+          valid: false,
+          message: 'Ticket not found',
+        });
+      }
+
+      // Already scanned
+      if (ticket.status === 'USED') {
+        return res.status(400).json({
+          valid: false,
+          message: 'Ticket has already been used',
+          name: ticket.fullName,
+          email: ticket.email,
+          ticketTier: ticket.ticketType,
+          ticketId: ticket.ticketNumber,
+        });
+      }
+
+      // Cancelled
+      if (ticket.status === 'CANCELLED') {
+        return res.status(400).json({
+          valid: false,
+          message: 'Ticket has been cancelled',
+        });
+      }
+
+      // Refunded
+      if (ticket.status === 'REFUNDED') {
+        return res.status(400).json({
+          valid: false,
+          message: 'Ticket has been refunded',
+        });
+      }
+
+      // Expired
+      if (ticket.expiryDate && new Date(ticket.expiryDate) < new Date()) {
+        return res.status(400).json({
+          valid: false,
+          message: 'Ticket has expired',
+        });
+      }
+
+      // Mark as used
+      ticket.status = 'USED';
+      ticket.usedAt = new Date();
+      ticket.verifiedAt = new Date();
+
+      await ticket.save();
+
+      return res.json({
+        valid: true,
+        message: 'Entry Approved',
+        name: ticket.fullName,
+        email: ticket.email,
+        ticketTier: ticket.ticketType,
+        ticketId: ticket.ticketNumber,
+      });
+    } catch (err) {
+      console.error(err);
+
+      return res.status(500).json({
+        valid: false,
+        message: err.message,
+      });
+    }
+  }
+
 }
 
 export const adminController = new AdminController();

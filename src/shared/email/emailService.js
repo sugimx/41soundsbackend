@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 import { logger } from '../logger/logger.js';
+import QRCode from 'qrcode';
+import { qrCodeService } from '../utils/QRCodeService.js';
 
 // Lazy-initialized transporter
 let transporter = null;
@@ -296,27 +298,17 @@ This is an automated email. Please do not reply to this email.
         return { success: false, message: 'Email service not configured' };
       }
 
-      const attachments = [];
-      if (ticketDetails.qrCodeImage) {
-        // Extract base64 data from data URL if needed
-        const base64Data = ticketDetails.qrCodeImage.includes('base64,')
-          ? ticketDetails.qrCodeImage.split('base64,')[1]
-          : ticketDetails.qrCodeImage;
+      const eventName = ticketDetails?.eventName || 'Muthamazhai 2.0';
 
-        attachments.push({
-          filename: `ticket-${ticketDetails.ticketNumber}.png`,
-          content: Buffer.from(base64Data, 'base64'),
-          cid: 'qrcode@41sounds',
-        });
-      }
-
+      const qrImage = ticketDetails.qrCodeImage || ticketDetails.qrCode?.data ||
+        await qrCodeService.generateQRCodeDataURL(ticketDetails.ticketNumber);
+      
       const mailOptions = {
         from: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
         to: userEmail,
-        subject: `Your Event Ticket - ${ticketDetails.eventName} - 41Sounds`,
-        html: this.generateTicketDeliveryHTML(userName, ticketDetails),
+        subject: `Your Event Ticket - ${eventName} - 41Sounds`,
+        html: this.generateTicketDeliveryHTML(userName, ticketDetails, qrImage),
         text: this.generateTicketDeliveryText(userName, ticketDetails),
-        attachments,
       };
 
       const result = await emailTransporter.sendMail(mailOptions);
@@ -344,7 +336,7 @@ This is an automated email. Please do not reply to this email.
    * @param {Object} ticketDetails - Ticket details
    * @returns {string} HTML template
    */
-  generateTicketDeliveryHTML(userName, ticketDetails) {
+  generateTicketDeliveryHTML(userName, ticketDetails, qrImage) {
     const eventDate = new Date(ticketDetails.eventDate).toLocaleDateString(
       'en-IN',
       { year: 'numeric', month: 'long', day: 'numeric' }
@@ -512,7 +504,7 @@ This is an automated email. Please do not reply to this email.
 
             <div class="qr-section">
               <p><strong>Your QR Code</strong></p>
-              <img src="cid:qrcode@41sounds" alt="Ticket QR Code">
+              <img src="${qrImage}" alt="Ticket QR Code" style="max-width:250px;height:auto;border-radius:8px;" />
               <div class="qr-label">Show this QR code at the venue for entry</div>
             </div>
 

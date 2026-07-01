@@ -4,27 +4,47 @@ const ticketSchema = new mongoose.Schema(
   {
     ticketNumber: {
       type: String,
-      required: [true, 'Ticket number is required'],
+      required: false,
       unique: true,
       index: true,
     },
     eventId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Event',
-      required: [true, 'Event ID is required'],
+      required: false,
       index: true,
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'User ID is required'],
+      required: false,
       index: true,
     },
     paymentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Payment',
-      required: [true, 'Payment ID is required'],
+      required: false,
     },
+
+    fullName: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+
+    email: {
+      type: String,
+      required: false,
+      lowercase: true,
+      trim: true,
+    },
+
+    mobile: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+
     ticketType: {
       type: String,
       enum: ['Gold', 'Platinum', 'VIP', 'MVIP'],
@@ -78,6 +98,53 @@ const ticketSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
+    qrCode: {
+      value: {
+        type: String,
+        default: null,
+      },
+      data: {
+        type: String,
+        default: null,
+      },
+      generatedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+
+    qrGenerated: {
+      type: Boolean,
+      default: false,
+    },
+
+    pdfGenerated: {
+      type: Boolean,
+      default: false,
+    },
+
+    emailSent: {
+      type: Boolean,
+      default: false,
+    },
+
+    whatsappSent: {
+      type: Boolean,
+      default: false,
+    },
+
+    deliveryStatus: {
+      type: String,
+      enum: ['PENDING', 'PARTIAL', 'DELIVERED'],
+      default: 'PENDING',
+    },
+
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
+
     metadata: {
       type: Object,
       default: {},

@@ -10,17 +10,17 @@ export class TicketController {
   async getTicket(req, res) {
     try {
       const { ticketId } = req.params;
-      const userId = req.userId;
+      // const userId = req.userId;
 
       const ticket = await ticketService.getTicketById(ticketId);
 
       // Verify ticket belongs to authenticated user (unless admin)
-      if (ticket.userId._id.toString() !== userId) {
-        return res.status(403).json({
-          success: false,
-          message: 'Unauthorized access to this ticket',
-        });
-      }
+      // if (ticket.userId._id.toString() !== userId) {
+      //   return res.status(403).json({
+      //     success: false,
+      //     message: 'Unauthorized access to this ticket',
+      //   });
+      // }
 
       res.json({
         success: true,

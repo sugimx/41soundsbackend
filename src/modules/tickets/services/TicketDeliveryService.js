@@ -27,9 +27,14 @@ export class TicketDeliveryService {
       }
 
       // Generate QR code image if not already generated
-      if (!ticket.qrCode.data) {
+      if (!ticket.qrCode?.data) {
         const qrCodeData = await qrCodeService.generateTicketQRCode(ticket);
-        ticket.qrCode.data = qrCodeData.image;
+        ticket.qrCode = {
+          value: qrCodeData.qrValue,
+          data: qrCodeData.image,
+          generatedAt: new Date(),
+        };
+        ticket.qrGenerated = true;
         await ticket.save();
       }
 
@@ -42,7 +47,7 @@ export class TicketDeliveryService {
         price: ticket.price,
         seatSection: ticket.seatSection || 'General',
         seatNumber: ticket.seatNumber || 'Not assigned',
-        qrCodeImage: ticket.qrCode.data,
+        qrCodeImage: ticket.qrCode?.data,
         expiryDate: ticket.expiryDate,
         venue: ticket.eventId.venue,
       };

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { adminController } from '../controllers/AdminController.js';
 import { authenticate } from '../../../core/middlewares/authMiddleware.js';
 import { User } from '../../user/models/User.js';
+import upload from "../../../core/middlewares/upload.js"; // Import the upload middleware
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,7 +17,7 @@ console.log('✅ Admin routes module loaded');
 // Write to file to verify import
 try {
   fs.writeFileSync(path.join(projectRoot, 'admin-routes-imported.txt'), 'Admin routes imported at ' + new Date().toISOString());
-} catch(e) {
+} catch (e) {
   console.error('Failed to write test file:', e.message);
 }
 
@@ -31,14 +32,14 @@ router.get('/test', (req, res) => {
 const isAdmin = async (req, res, next) => {
   try {
     const user = await User.findById(req.userId);
-    
+
     if (!user || !['admin', 'super_admin'].includes(user.role)) {
       return res.status(403).json({
         success: false,
         message: 'Access denied. Admin role required.',
       });
     }
-    
+
     next();
   } catch (error) {
     return res.status(500).json({
@@ -532,5 +533,37 @@ router.patch('/support/:id/status', adminController.updateSupportTicketStatus.bi
  *       - bearerAuth: []
  */
 router.get('/analytics', adminController.getAnalytics.bind(adminController));
+
+/**
+ * @swagger
+ * /api/admin/importExcel:
+ *   post:
+ *     summary: Import Excel data
+ *     tags:
+ *       - Admin Tickets
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - file
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: Excel file (.xlsx / .csv)
+ */
+router.post('/importExcel', upload.single("file"),  adminController.importExcel.bind(adminController));
+
+router.post('/tickets/send-email', adminController.sendTicketEmail.bind(adminController));
+router.post('/tickets/send-whatsapp', adminController.sendTicketWhatsApp.bind(adminController));
+router.post('/tickets/send-both', adminController.sendTicketBoth.bind(adminController));
+router.post('/tickets/send-bulk', adminController.sendBulkTickets.bind(adminController));
+
+router.post('/tickets/scan', adminController.scanQR.bind(adminController));
 
 export default router;

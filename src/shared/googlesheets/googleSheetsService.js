@@ -277,9 +277,10 @@ class GoogleSheetsService {
    * Log admin ticket creation data to Google Sheet
    * @param {Object} payment - The payment record
    * @param {Object} user - The user details
+   * @param {Object} customer - The customer details  
    * @param {number} ticketsCreatedCount - Number of tickets created by admin
    */
-  async logAdminTicketCreation(payment, user, ticketsCreatedCount = 0) {
+  async logAdminTicketCreation(payment, user, customer, ticketsCreatedCount = 0) {
     try {
       if (!this.spreadsheetId) {
         logger.warn('Google Sheets spreadsheet ID not configured. Set GOOGLE_SHEET_ID or GOOGLE_SHEETS_SPREADSHEET_ID, skipping admin ticket logging');
@@ -302,8 +303,8 @@ class GoogleSheetsService {
           payment?.description || 'Admin ticket creation',
           payment?.status || 'SUCCESS',
           '',
-          user?.email || 'N/A',
-          user?.mobile || 'N/A',
+          customer.email || user?.email || 'N/A',
+          customer.mobile || user?.mobile || 'N/A',
           ticketsCreatedCount.toString(),
           payment?.notificationStatus?.email?.sent ? 'Yes' : 'No',
           payment?.notificationStatus?.whatsapp?.sent ? 'Yes' : 'No',

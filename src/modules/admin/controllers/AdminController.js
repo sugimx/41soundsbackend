@@ -1671,12 +1671,12 @@ export class AdminController {
       }
 
       // Expired
-      if (ticket.expiryDate && new Date(ticket.expiryDate) < new Date()) {
-        return res.status(400).json({
-          valid: false,
-          message: 'Ticket has expired',
-        });
-      }
+      // if (ticket.expiryDate && new Date(ticket.expiryDate) < new Date()) {
+      //   return res.status(400).json({
+      //     valid: false,
+      //     message: 'Ticket has expired',
+      //   });
+      // }
 
       // Mark as used
       ticket.status = 'USED';

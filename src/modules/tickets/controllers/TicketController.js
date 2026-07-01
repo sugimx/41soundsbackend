@@ -46,8 +46,6 @@ export class TicketController {
 
       const ticket = await ticketService.getTicketByTicketNumber(ticketNumber);
 
-      console.log('Ticket retrieved by ticket number:', ticket);
-
       res.json({
         success: true,
         data: ticket,

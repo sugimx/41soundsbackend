@@ -1379,7 +1379,7 @@ export class AdminController {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const workbook = XLSX.readFile(req.file.path);
+      const workbook = XLSX.readFile(req.file.buffer, { type: "buffer" });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
 
@@ -1424,7 +1424,6 @@ export class AdminController {
       const ticketsToInsert = rows.filter(row => !existingSet.has(row.BookingID)).map((row) => ({
         ticketNumber: row.BookingID,               // ✔ BookingID → ticketNumber
         userName: row.Name,
-        mobile: row["Phone Number"],
         email: row.To,
         fullName: row.Name,
         mobile: row["Phone Number"],
@@ -1436,7 +1435,7 @@ export class AdminController {
         seatSection: row["Seat Category"],
         seatNumber: row["Seat Number"],
 
-        expiryDate: new Date(row["Transaction Date"]), // reuse date if no expiry provided
+        expiryDate: row["Transaction Date"] ? new Date(row["Transaction Date"]) : new Date(), // reuse date if no expiry provided
 
         status: "VALID",
 
@@ -1468,10 +1467,6 @@ export class AdminController {
           message: "Excel import failed",
           error: err.message,
         });
-      }
-    } finally {
-      if (req.file?.path) {
-        fs.unlink(req.file.path, () => { });
       }
     }
   }

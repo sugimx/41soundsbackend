@@ -10,17 +10,17 @@ export class TicketController {
   async getTicket(req, res) {
     try {
       const { ticketId } = req.params;
-      // const userId = req.userId;
+      const userId = req.userId;
 
       const ticket = await ticketService.getTicketById(ticketId);
 
       // Verify ticket belongs to authenticated user (unless admin)
-      // if (ticket.userId._id.toString() !== userId) {
-      //   return res.status(403).json({
-      //     success: false,
-      //     message: 'Unauthorized access to this ticket',
-      //   });
-      // }
+      if (ticket.userId._id.toString() !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized access to this ticket',
+        });
+      }
 
       res.json({
         success: true,
@@ -28,6 +28,32 @@ export class TicketController {
       });
     } catch (error) {
       logger.error('Get ticket error', { error: error.message, ticketId: req.params.ticketId });
+      res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+
+  /**
+   * Get ticket by Ticket Number (for verification) - Public endpoint
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   */
+  async getTicketByTicketNumber(req, res) {
+    try {
+      const { ticketNumber } = req.params;
+
+      const ticket = await ticketService.getTicketByTicketNumber(ticketNumber);
+
+      console.log('Ticket retrieved by ticket number:', ticket);
+
+      res.json({
+        success: true,
+        data: ticket,
+      });
+    } catch (error) {
+      logger.error('Get ticket error', { error: error.message, ticketNumber: req.params.ticketNumber });
       res.status(404).json({
         success: false,
         message: error.message,

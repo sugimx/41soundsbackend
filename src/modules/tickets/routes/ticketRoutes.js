@@ -106,7 +106,10 @@ router.post('/bulk', authenticate, ticketController.createTicketsBulk.bind(ticke
  *       401:
  *         description: Unauthorized
  */
-router.get('/:ticketId', ticketController.getTicket.bind(ticketController));
+router.get('/:ticketId', authenticate, ticketController.getTicket.bind(ticketController));
+
+
+router.get('/public/:ticketNumber', ticketController.getTicketByTicketNumber.bind(ticketController));
 
 /**
  * @swagger

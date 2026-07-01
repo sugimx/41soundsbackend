@@ -128,6 +128,29 @@ export class TicketService {
   }
 
 
+    /**
+   * Get ticket by ID
+   * @param {string} ticketId - Ticket ID
+   * @returns {Promise<Object>} Ticket document
+   */
+  async getTicketByTicketNumber(ticketNumber) {
+    try {
+      const ticket = await Ticket.findOne({ ticketNumber })
+        .populate('eventId', 'eventName eventDate venue')
+        .populate('userId', 'email fullName mobile')
+        .populate('paymentId', 'orderId amount');
+
+      if (!ticket) {
+        throw new Error('Ticket not found');
+      }
+
+      return ticket;
+    } catch (error) {
+      logger.error('Error fetching ticket', { error: error.message, ticketId });
+      throw error;
+    }
+  }
+
 
   /**
    * Get user's tickets

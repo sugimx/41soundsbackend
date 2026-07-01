@@ -114,16 +114,6 @@ const ticketSchema = new mongoose.Schema(
       },
     },
 
-    qrGenerated: {
-      type: Boolean,
-      default: false,
-    },
-
-    pdfGenerated: {
-      type: Boolean,
-      default: false,
-    },
-
     emailSent: {
       type: Boolean,
       default: false,

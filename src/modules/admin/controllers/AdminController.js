@@ -214,6 +214,7 @@ export class AdminController {
       const data = tickets.map((ticket) => ({
         _id: ticket._id,
         userId: ticket.userId?._id,
+        ticketNumber: ticket.ticketNumber,
         userEmail: ticket.email || ticket.userId?.email,
         userName: ticket.fullName || ticket.userId?.fullName,
         userMobile: ticket.mobile || ticket.userId?.mobile,
@@ -226,6 +227,10 @@ export class AdminController {
         qrCode: ticket.ticketNumber,
         createdAt: ticket.createdAt,
         updatedAt: ticket.updatedAt,
+        emailSent: ticket.emailSent || false,
+        expiryDate: ticket.expiryDate,
+        whatsappSent: ticket.whatsappSent || false,
+        verifiedAt: ticket.verifiedAt || null,
       }));
 
       return res.json({

@@ -34,8 +34,6 @@ export class TicketDeliveryService {
           data: qrCodeData.image,
           generatedAt: new Date(),
         };
-        ticket.qrGenerated = true;
-        await ticket.save();
       }
 
       // Prepare ticket details for email

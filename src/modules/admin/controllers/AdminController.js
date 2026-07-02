@@ -733,6 +733,7 @@ export class AdminController {
             totalAmountSpent: payments[0]?.total || 0,
             createdAt: user.createdAt,
             lastPurchaseDate: user.updatedAt,
+            role: user.role,
           };
         })
       );

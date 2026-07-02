@@ -1404,29 +1404,28 @@ export class AdminController {
         existingTickets.map(ticket => ticket.ticketNumber)
       );
 
+      const tierPrices = {
+          MVIP: 5000,
+          VIP: 2000,
+          Platinum: 1200,
+          Gold: 800,
+        };
+
       const ticketsToInsert = rows.filter(row => !existingSet.has(row.BookingID)).map((row) => {
 
-        const quantity = Number(row.Tickets || 1);
-        const totalPrice = Number(row.Price || 0);
-
         return {
-          ticketNumber: row.BookingID,               // ✔ BookingID → ticketNumber
+          ticketNumber: row.BookingID,          
           userName: row.Name,
           email: row.To,
           fullName: row.Name,
           mobile: row["Phone Number"],
-          ticketType: row["Seat Category"],          // VIP / MVIP etc
+          ticketType: row["Seat Category"], 
           quantity: Number(row.Tickets || 1),
-
-          price: quantity > 0 ? totalPrice / quantity : totalPrice,
-
+          price: tierPrices[row["Seat Category"]] || 0,
           seatSection: row["Seat Category"],
           seatNumber: row["Seat Number"],
-
-          expiryDate: customExpiry, // reuse date if no expiry provided
-
+          expiryDate: customExpiry,
           status: "VALID",
-
           metadata: {
             source: "excel-import",
             transactionDate: row["Transaction Date"],

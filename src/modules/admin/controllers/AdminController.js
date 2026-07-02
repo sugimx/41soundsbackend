@@ -1410,30 +1410,36 @@ export class AdminController {
         existingTickets.map(ticket => ticket.ticketNumber)
       );
 
-      const ticketsToInsert = rows.filter(row => !existingSet.has(row.BookingID)).map((row) => ({
-        ticketNumber: row.BookingID,               // ✔ BookingID → ticketNumber
-        userName: row.Name,
-        email: row.To,
-        fullName: row.Name,
-        mobile: row["Phone Number"],
-        ticketType: row["Seat Category"],          // VIP / MVIP etc
-        quantity: Number(row.Tickets || 1),
+      const ticketsToInsert = rows.filter(row => !existingSet.has(row.BookingID)).map((row) => {
 
-        price: Number(row.Price || 0),
+        const quantity = Number(row.Tickets || 1);
+        const totalPrice = Number(row.Price || 0);
 
-        seatSection: row["Seat Category"],
-        seatNumber: row["Seat Number"],
+        return {
+          ticketNumber: row.BookingID,               // ✔ BookingID → ticketNumber
+          userName: row.Name,
+          email: row.To,
+          fullName: row.Name,
+          mobile: row["Phone Number"],
+          ticketType: row["Seat Category"],          // VIP / MVIP etc
+          quantity: Number(row.Tickets || 1),
 
-        expiryDate: customExpiry, // reuse date if no expiry provided
+          price: quantity > 0 ? totalPrice / quantity : totalPrice,
 
-        status: "VALID",
+          seatSection: row["Seat Category"],
+          seatNumber: row["Seat Number"],
 
-        metadata: {
-          source: "excel-import",
-          transactionDate: row["Transaction Date"],
-          serial: row["S.No"],
-        },
-      }));
+          expiryDate: customExpiry, // reuse date if no expiry provided
+
+          status: "VALID",
+
+          metadata: {
+            source: "excel-import",
+            transactionDate: row["Transaction Date"],
+            serial: row["S.No"],
+          },
+        }
+      });
 
 
       const inserted = await Ticket.insertMany(ticketsToInsert);
@@ -1477,7 +1483,7 @@ export class AdminController {
       const result = await emailService.sendTicketDelivery(email, name, ticket);
 
       if (result.success) {
-      ticket.emailSent = true;
+        ticket.emailSent = true;
       }
 
       await ticket.save();
@@ -1515,7 +1521,7 @@ export class AdminController {
       const result = await whatsappService.sendTicketDelivery(mobile, name, ticketDetails);
 
       if (result.success) {
-      ticket.whatsappSent = true;
+        ticket.whatsappSent = true;
       }
 
       await ticket.save();
@@ -1580,7 +1586,7 @@ export class AdminController {
           amount: t.price,
           ticketTier: t.ticketType,
           completedAt: t.expiryDate,
-          eatSection: t.seatSection,
+          seatSection: t.seatSection,
           seatNumber: t.seatNumber,
           ticketQuantity: t.quantity,
         };
@@ -1680,6 +1686,11 @@ export class AdminController {
         name: ticket.fullName,
         email: ticket.email,
         ticketTier: ticket.ticketType,
+        quantity: ticket.quantity || 1,
+        unitPrice: ticket.price,
+        totalPrice: ticket.price * (ticket.quantity || 1),
+        seatSection: ticket.seatSection,
+        seatNumber: ticket.seatNumber,
         ticketId: ticket.ticketNumber,
       });
     } catch (err) {

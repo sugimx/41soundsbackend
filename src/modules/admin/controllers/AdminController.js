@@ -1355,14 +1355,7 @@ export class AdminController {
       return res.json({
         success: true,
         message: `User promoted to ${role}`,
-        data: {
-          _id: user._id,
-          email: user.email,
-          fullName: user.fullName,
-          role: user.role,
-          previousRole: 'user',
-          promotedAt: new Date(),
-        },
+        data: user,
       });
     } catch (error) {
       console.error('Error promoting user:', error);

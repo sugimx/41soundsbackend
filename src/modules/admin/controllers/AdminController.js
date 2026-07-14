@@ -410,12 +410,13 @@ export class AdminController {
         Platinum: 1200,
         VIP: 2000,
         MVIP: 5000,
+        Standing: 300,
       };
 
       if (!tierPrices[ticketTier]) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid ticket tier. Must be one of: Gold, Platinum, VIP, MVIP',
+          message: 'Invalid ticket tier. Must be one of: Gold, Platinum, VIP, MVIP, Standing',
         });
       }
 
@@ -425,6 +426,7 @@ export class AdminController {
         Platinum: 'Platinum',
         VIP: 'VIP',
         MVIP: 'MVIP',
+        Standing: 'Standing',
       };
 
       // Find user
@@ -466,6 +468,7 @@ export class AdminController {
             { name: 'Platinum', price: 1200, totalQuantity: 500, soldQuantity: 0, description: 'Platinum tier' },
             { name: 'VIP', price: 2000, totalQuantity: 200, soldQuantity: 0, description: 'VIP tier' },
             { name: 'MVIP', price: 5000, totalQuantity: 100, soldQuantity: 0, description: 'MVIP tier' },
+            { name: 'Standing', price: 300, totalQuantity: 2000, soldQuantity: 0, description: 'Standing tier' },
           ],
           status: 'ACTIVE',
         });
@@ -1409,6 +1412,7 @@ export class AdminController {
           VIP: 2000,
           Platinum: 1200,
           Gold: 800,
+          Standing: 300,
         };
 
       const ticketsToInsert = rows.filter(row => !existingSet.has(row.BookingID)).map((row) => {

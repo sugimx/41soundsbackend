@@ -128,7 +128,7 @@ router.get('/tickets', adminController.getTickets.bind(adminController));
  *                 type: string
  *               ticketTier:
  *                 type: string
- *                 enum: [Gold, Platinum, VIP, MVIP]
+ *                 enum: [Gold, Platinum, VIP, MVIP, Standing]
  *               quantity:
  *                 type: integer
  *                 minimum: 1

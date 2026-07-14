@@ -4,7 +4,7 @@ const ticketTypeSchema = new mongoose.Schema({
   name: {
     type: String,
     required: [true, 'Ticket type name is required'],
-    enum: ['Gold', 'Platinum', 'VIP', 'MVIP'],
+    enum: ['Gold', 'Platinum', 'VIP', 'MVIP', 'Standing'],
   },
   price: {
     type: Number,

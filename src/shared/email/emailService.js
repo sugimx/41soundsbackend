@@ -224,7 +224,7 @@ export class EmailService {
               </div>
             </div>
 
-            <p>Your booking is being processed, and you will receive your ticket details via email/whatsapp anytime before in the last three days of the event.</p>
+            <p>Your booking is being processed, and you will receive your ticket details via email/whatsapp within the last 24 hours before the event starts.</p>
 
             <p>If you have any questions or need further assistance, please don't hesitate to contact our support team.</p>
 

@@ -251,7 +251,7 @@ const options = {
             },
             ticketType: {
               type: 'string',
-              enum: ['Gold', 'Platinum', 'VIP', 'MVIP'],
+              enum: ['Gold', 'Platinum', 'VIP', 'MVIP', 'Standing'],
               description: 'Type of ticket',
             },
             price: {

@@ -1,6 +1,7 @@
 import { Ticket } from '../../tickets/models/Ticket.js';
 import { Event } from '../../events/models/Event.js';
 import { User } from '../../user/models/User.js';
+import { Payment } from '../../payment/models/Payment.js';
 import { logger } from '../../../shared/logger/logger.js';
 import { emailService } from '../../../shared/email/emailService.js';
 import { whatsappService } from '../../../shared/whatsapp/whatsappService.js';
@@ -65,9 +66,10 @@ export class TicketDeliveryService {
       });
 
       try {
-        const orderId = ticket.metadata?.orderId || ticket.paymentId?.toString();
-        if (orderId) {
-          await googleSheetsService.updateNotificationStatus(orderId, { emailSent: true });
+        const payment = ticket.paymentId ? await Payment.findById(ticket.paymentId) : null;
+        const sheetIdentifier = payment || ticket.metadata?.orderId || ticket.paymentId?.toString();
+        if (sheetIdentifier) {
+          await googleSheetsService.updateNotificationStatus(sheetIdentifier, { emailSent: true });
         }
       } catch (sheetError) {
         logger.warn('Failed to update Google Sheet after successful email delivery', {
@@ -152,9 +154,10 @@ Valid until: ${new Date(ticket.expiryDate).toLocaleDateString()}
       });
 
       try {
-        const orderId = ticket.metadata?.orderId || ticket.paymentId?.toString();
-        if (orderId) {
-          await googleSheetsService.updateNotificationStatus(orderId, { whatsappSent: true });
+        const payment = ticket.paymentId ? await Payment.findById(ticket.paymentId) : null;
+        const sheetIdentifier = payment || ticket.metadata?.orderId || ticket.paymentId?.toString();
+        if (sheetIdentifier) {
+          await googleSheetsService.updateNotificationStatus(sheetIdentifier, { whatsappSent: true });
         }
       } catch (sheetError) {
         logger.warn('Failed to update Google Sheet after successful WhatsApp delivery', {

@@ -193,6 +193,53 @@ class GoogleSheetsService {
     }
   }
 
+  getCandidateOrderValues(identifier) {
+    const values = [];
+    const pushValue = value => {
+      if (value == null || value === '') {
+        return;
+      }
+      const stringValue = value.toString().trim();
+      if (stringValue && !values.includes(stringValue)) {
+        values.push(stringValue);
+      }
+    };
+
+    if (identifier == null) {
+      return values;
+    }
+
+    if (typeof identifier === 'string' || typeof identifier === 'number') {
+      pushValue(identifier);
+      return values;
+    }
+
+    if (typeof identifier === 'object') {
+      pushValue(identifier.orderId);
+      pushValue(identifier.cashfreeOrderId);
+      pushValue(identifier.order_id);
+      pushValue(identifier._id);
+      pushValue(identifier.id);
+      pushValue(identifier.metadata?.orderId);
+      pushValue(identifier.paymentId);
+    }
+
+    return values;
+  }
+
+  findMatchingRowIndex(rows, identifier) {
+    const candidates = this.getCandidateOrderValues(identifier);
+
+    if (candidates.length === 0) {
+      return -1;
+    }
+
+    return rows.findIndex(row => {
+      const rowValue = (row[1] || '').toString().trim();
+      return candidates.some(candidate => rowValue === candidate);
+    });
+  }
+
   async getNextSerialNo(sheetName) {
     const response = await this.sheets.spreadsheets.values.get({
       spreadsheetId: this.spreadsheetId,
@@ -361,9 +408,9 @@ class GoogleSheetsService {
    * Get all webhook logs from sheet
    * @param {number} limit - Maximum number of rows to retrieve
    */
-  async updateNotificationStatus(orderId, { emailSent = null, whatsappSent = null } = {}) {
+  async updateNotificationStatus(identifier, { emailSent = null, whatsappSent = null } = {}) {
     try {
-      if (!this.spreadsheetId || !orderId) {
+      if (!this.spreadsheetId || !identifier) {
         return;
       }
 
@@ -377,10 +424,10 @@ class GoogleSheetsService {
       });
 
       const rows = response.data.values || [];
-      const rowIndex = rows.findIndex(row => (row[1] || '').toString() === orderId.toString());
+      const rowIndex = this.findMatchingRowIndex(rows, identifier);
 
       if (rowIndex < 0) {
-        logger.warn('No matching Google Sheets row found for notification status update', { orderId });
+        logger.warn('No matching Google Sheets row found for notification status update', { identifier });
         return;
       }
 
@@ -415,21 +462,21 @@ class GoogleSheetsService {
       });
 
       logger.info('Updated Google Sheet notification status', {
-        orderId,
+        identifier,
         emailSent,
         whatsappSent,
       });
     } catch (error) {
       logger.error('Error updating Google Sheet notification status', {
         error: error.message,
-        orderId,
+        identifier,
       });
     }
   }
 
-  async updateTicketScanStatus(orderId, scannedAt = new Date()) {
+  async updateTicketScanStatus(identifier, scannedAt = new Date()) {
     try {
-      if (!this.spreadsheetId || !orderId) {
+      if (!this.spreadsheetId || !identifier) {
         return;
       }
 
@@ -443,10 +490,10 @@ class GoogleSheetsService {
       });
 
       const rows = response.data.values || [];
-      const rowIndex = rows.findIndex(row => (row[1] || '').toString() === orderId.toString());
+      const rowIndex = this.findMatchingRowIndex(rows, identifier);
 
       if (rowIndex < 0) {
-        logger.warn('No matching Google Sheets row found for ticket scan update', { orderId });
+        logger.warn('No matching Google Sheets row found for ticket scan update', { identifier });
         return;
       }
 
@@ -464,13 +511,13 @@ class GoogleSheetsService {
       });
 
       logger.info('Updated Google Sheet ticket scan status', {
-        orderId,
+        identifier,
         scannedAt: scanTimestamp,
       });
     } catch (error) {
       logger.error('Error updating Google Sheet ticket scan status', {
         error: error.message,
-        orderId,
+        identifier,
       });
     }
   }

@@ -1678,9 +1678,10 @@ export class AdminController {
       await ticket.save();
 
       try {
-        const orderId = ticket.metadata?.orderId || (ticket.paymentId ? (await Payment.findById(ticket.paymentId))?.orderId : null);
-        if (orderId) {
-          await googleSheetsService.updateTicketScanStatus(orderId, ticket.usedAt);
+        const payment = ticket.paymentId ? await Payment.findById(ticket.paymentId) : null;
+        const sheetIdentifier = payment || ticket.metadata?.orderId || ticket.paymentId?.toString();
+        if (sheetIdentifier) {
+          await googleSheetsService.updateTicketScanStatus(sheetIdentifier, ticket.usedAt);
         }
       } catch (sheetError) {
         console.error('Failed to update Google Sheet after ticket scan', sheetError);

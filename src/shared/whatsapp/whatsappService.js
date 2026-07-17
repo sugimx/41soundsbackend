@@ -154,11 +154,6 @@ export class WhatsAppService {
               type: 'body',
               parameters: [
                 { type: 'text', text: userName || "N/A" },
-                { type: 'text', text: "Muthamazhai 2.0" },
-                { type: 'text', text: paymentDetails.orderId || "N/A" },
-                { type: 'text', text: paymentDetails.ticketTier || "N/A" },
-                { type: 'text', text: String(paymentDetails.ticketQuantity) || "N/A" },
-                { type: 'text', text: paymentDetails.seatNumber || "N/A" },
               ],
             },
             {
@@ -170,7 +165,6 @@ export class WhatsAppService {
               ]
             }
           ],
-          
         },
       };
 

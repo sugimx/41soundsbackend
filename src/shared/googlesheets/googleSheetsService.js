@@ -38,6 +38,8 @@ class GoogleSheetsService {
         'Tickets Created',
         'Email Sent',
         'WhatsApp Sent',
+        'Scanned',
+        'Scanned At',
       ],
     };
   }
@@ -158,6 +160,37 @@ class GoogleSheetsService {
         values,
       },
     });
+  }
+
+  async ensureHeaderColumns(sheetName, requiredHeaders) {
+    try {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetName}!1:1`,
+      });
+
+      const existingHeaders = response.data.values?.[0] || [];
+      const missingHeaders = requiredHeaders.filter(header => !existingHeaders.includes(header));
+
+      if (missingHeaders.length === 0) {
+        return;
+      }
+
+      const updatedHeaders = [...existingHeaders, ...missingHeaders];
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [updatedHeaders],
+        },
+      });
+    } catch (error) {
+      logger.error('Error ensuring Google Sheet header columns', {
+        error: error.message,
+        sheetName,
+      });
+    }
   }
 
   async getNextSerialNo(sheetName) {
@@ -328,6 +361,120 @@ class GoogleSheetsService {
    * Get all webhook logs from sheet
    * @param {number} limit - Maximum number of rows to retrieve
    */
+  async updateNotificationStatus(orderId, { emailSent = null, whatsappSent = null } = {}) {
+    try {
+      if (!this.spreadsheetId || !orderId) {
+        return;
+      }
+
+      await this.initialize();
+      await this.ensureSheetExists(this.webhookSheetName);
+      await this.ensureHeaderColumns(this.webhookSheetName, ['Email Sent', 'WhatsApp Sent']);
+
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: `${this.webhookSheetName}!A:P`,
+      });
+
+      const rows = response.data.values || [];
+      const rowIndex = rows.findIndex(row => (row[1] || '').toString() === orderId.toString());
+
+      if (rowIndex < 0) {
+        logger.warn('No matching Google Sheets row found for notification status update', { orderId });
+        return;
+      }
+
+      const targetRowNumber = rowIndex + 1;
+      const updates = [];
+
+      if (emailSent !== null) {
+        updates.push(emailSent ? 'Yes' : 'No');
+      }
+
+      if (whatsappSent !== null) {
+        updates.push(whatsappSent ? 'Yes' : 'No');
+      }
+
+      if (updates.length === 0) {
+        return;
+      }
+
+      const range = updates.length === 2
+        ? `${this.webhookSheetName}!O${targetRowNumber}:P${targetRowNumber}`
+        : emailSent !== null
+          ? `${this.webhookSheetName}!O${targetRowNumber}:O${targetRowNumber}`
+          : `${this.webhookSheetName}!P${targetRowNumber}:P${targetRowNumber}`;
+
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [updates],
+        },
+      });
+
+      logger.info('Updated Google Sheet notification status', {
+        orderId,
+        emailSent,
+        whatsappSent,
+      });
+    } catch (error) {
+      logger.error('Error updating Google Sheet notification status', {
+        error: error.message,
+        orderId,
+      });
+    }
+  }
+
+  async updateTicketScanStatus(orderId, scannedAt = new Date()) {
+    try {
+      if (!this.spreadsheetId || !orderId) {
+        return;
+      }
+
+      await this.initialize();
+      await this.ensureSheetExists(this.webhookSheetName);
+      await this.ensureHeaderColumns(this.webhookSheetName, ['Scanned', 'Scanned At']);
+
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: `${this.webhookSheetName}!A:R`,
+      });
+
+      const rows = response.data.values || [];
+      const rowIndex = rows.findIndex(row => (row[1] || '').toString() === orderId.toString());
+
+      if (rowIndex < 0) {
+        logger.warn('No matching Google Sheets row found for ticket scan update', { orderId });
+        return;
+      }
+
+      const targetRowNumber = rowIndex + 1;
+      const scanValue = 'Yes';
+      const scanTimestamp = scannedAt instanceof Date ? scannedAt.toISOString() : scannedAt;
+
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: `${this.webhookSheetName}!Q${targetRowNumber}:R${targetRowNumber}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[scanValue, scanTimestamp]],
+        },
+      });
+
+      logger.info('Updated Google Sheet ticket scan status', {
+        orderId,
+        scannedAt: scanTimestamp,
+      });
+    } catch (error) {
+      logger.error('Error updating Google Sheet ticket scan status', {
+        error: error.message,
+        orderId,
+      });
+    }
+  }
+
   async getWebhookLogs(limit = 100) {
     try {
       await this.initialize();

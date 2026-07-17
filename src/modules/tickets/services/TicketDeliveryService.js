@@ -5,6 +5,7 @@ import { logger } from '../../../shared/logger/logger.js';
 import { emailService } from '../../../shared/email/emailService.js';
 import { whatsappService } from '../../../shared/whatsapp/whatsappService.js';
 import { qrCodeService } from '../../../shared/utils/QRCodeService.js';
+import { googleSheetsService } from '../../../shared/googlesheets/googleSheetsService.js';
 
 export class TicketDeliveryService {
   /**
@@ -62,6 +63,18 @@ export class TicketDeliveryService {
         email: ticket.userId.email,
         messageId: emailResult.messageId,
       });
+
+      try {
+        const orderId = ticket.metadata?.orderId || ticket.paymentId?.toString();
+        if (orderId) {
+          await googleSheetsService.updateNotificationStatus(orderId, { emailSent: true });
+        }
+      } catch (sheetError) {
+        logger.warn('Failed to update Google Sheet after successful email delivery', {
+          error: sheetError.message,
+          ticketId,
+        });
+      }
 
       return {
         success: true,
@@ -140,6 +153,18 @@ Valid until: ${new Date(ticket.expiryDate).toLocaleDateString()}
         phone: ticket.userId.mobile,
         messageId: whatsappResult.messageId,
       });
+
+      try {
+        const orderId = ticket.metadata?.orderId || ticket.paymentId?.toString();
+        if (orderId) {
+          await googleSheetsService.updateNotificationStatus(orderId, { whatsappSent: true });
+        }
+      } catch (sheetError) {
+        logger.warn('Failed to update Google Sheet after successful WhatsApp delivery', {
+          error: sheetError.message,
+          ticketId,
+        });
+      }
 
       return {
         success: true,

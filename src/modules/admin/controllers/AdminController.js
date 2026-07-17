@@ -1677,6 +1677,15 @@ export class AdminController {
 
       await ticket.save();
 
+      try {
+        const orderId = ticket.metadata?.orderId || (ticket.paymentId ? (await Payment.findById(ticket.paymentId))?.orderId : null);
+        if (orderId) {
+          await googleSheetsService.updateTicketScanStatus(orderId, ticket.usedAt);
+        }
+      } catch (sheetError) {
+        console.error('Failed to update Google Sheet after ticket scan', sheetError);
+      }
+
       return res.json({
         valid: true,
         message: 'Entry Approved',

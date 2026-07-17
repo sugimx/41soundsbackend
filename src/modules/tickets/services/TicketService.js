@@ -4,6 +4,7 @@ import { User } from '../../user/models/User.js';
 import { Payment } from '../../payment/models/Payment.js';
 import { logger } from '../../../shared/logger/logger.js';
 import mongoose from 'mongoose';
+import { googleSheetsService } from '../../../shared/googlesheets/googleSheetsService.js';
 
 export class TicketService {
   /**
@@ -248,6 +249,18 @@ export class TicketService {
       ticket.usedLocation = location;
 
       await ticket.save();
+
+      try {
+        const orderId = ticket.metadata?.orderId || (ticket.paymentId ? (await Payment.findById(ticket.paymentId))?.orderId : null);
+        if (orderId) {
+          await googleSheetsService.updateTicketScanStatus(orderId, ticket.usedAt);
+        }
+      } catch (sheetError) {
+        logger.warn('Failed to update Google Sheet after ticket scan', {
+          error: sheetError.message,
+          ticketId,
+        });
+      }
 
       logger.info('Ticket redeemed successfully', {
         ticketId,

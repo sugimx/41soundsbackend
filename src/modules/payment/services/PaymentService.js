@@ -461,6 +461,18 @@ export class PaymentService {
       // Save all notification status updates
       await payment.save();
 
+      try {
+        await googleSheetsService.updateNotificationStatus(payment.orderId, {
+          emailSent: payment.notificationStatus?.email?.sent === true,
+          whatsappSent: payment.notificationStatus?.whatsapp?.sent === true,
+        });
+      } catch (sheetError) {
+        logger.warn('Failed to update Google Sheet notification status after payment confirmation', {
+          error: sheetError.message,
+          orderId: payment.orderId,
+        });
+      }
+
       // Log webhook data to Google Sheets
       try {
         const user = await User.findById(payment.userId);

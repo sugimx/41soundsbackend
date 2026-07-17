@@ -305,7 +305,7 @@ This is an automated email. Please do not reply to this email.
       const mailOptions = {
         from: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
         to: userEmail,
-        subject: `Your Event Ticket - Muthamazhai 2.0 - 41Sounds`,
+        subject: `Your Event Ticket - Stunts & Street - 41Sounds`,
         html: this.generateTicketDeliveryHTML(userName, ticketDetails, qrImage),
         text: this.generateTicketDeliveryText(userName, ticketDetails),
          attachments: [
@@ -503,10 +503,18 @@ This is an automated email. Please do not reply to this email.
 
             <p>Hello ${userName},</p>
 
-            <p>Thank you for your purchase! Your ticket for the upcoming event is now ready. Please find all the details below.</p>
+            <p>
+              Thank you for your booking! Your ticket for <strong>Stunts & Street</strong> is ready.
+              Please find your ticket details and QR code below.
+              </p>
+
+              <p>
+              Your Chinmayi Live Concert ticket has been converted to the Stunts & Street event.
+              Your existing QR code is valid for entry.
+              </p>
 
             <div class="event-section">
-              <h2>Muthamazhai 2.0</h2>
+              <h2>Stunts & Street</h2>
               <div class="event-date">📅 18 July 2026</div>
             </div>
 
@@ -520,22 +528,6 @@ This is an automated email. Please do not reply to this email.
               <div class="detail-box">
                 <span class="detail-label">Ticket Number</span>
                 <span class="detail-value">${ticketDetails.ticketNumber}</span>
-              </div>
-              <div class="detail-box">
-                <span class="detail-label">Ticket Type</span>
-                <span class="detail-value">${ticketDetails.ticketType}</span>
-              </div>
-              <div class="detail-box">
-                <span class="detail-label">Quantity</span>
-                <span class="detail-value">${ticketDetails.quantity}</span>
-              </div>
-              <div class="detail-box">
-                <span class="detail-label">Price</span>
-                <span class="detail-value">₹${ticketDetails.price}</span>
-              </div>
-              <div class="detail-box">
-                <span class="detail-label">Seat</span>
-                <span class="detail-value">${ticketDetails.seatNumber}</span>
               </div>
             </div>
 
@@ -585,23 +577,25 @@ Hello ${userName},
 
 Your ticket for the event is ready!
 
-EVENT: Muthamazhai 2.0
+EVENT: Stunts & Street
 DATE: 18 July 2026
 
 TICKET DETAILS:
 ---
 Ticket Number: ${ticketDetails.ticketNumber}
-Type: ${ticketDetails.ticketType}
-Quantity: ${ticketDetails.quantity}
-Price: ₹${ticketDetails.price}
-Seat: ${ticketDetails.seatNumber}
+
+EVENT DETAILS:
+---
+Date: 18 July 2026
+Ticket Value: ₹270
+
+Highlights:
+- Bike Stunt Performances from 10:00 AM
+- Food Street
+- Live Music Performances from 6:00 PM
+- Full-day entertainment
 
 Please save your QR code (attached) and present it at the venue for entry.
-
-IMPORTANT:
-- Arrive 15-30 minutes before the event
-- Keep your ticket safe
-- This ticket is non-transferable
 
 VENUE:
 Hindustan Concert Ground, Coimbatore, Tamilnadu
@@ -762,7 +756,7 @@ If you have any questions, contact our support team.
             <p>Get ready for an amazing experience! See you there! 🎉</p>
 
             <div class="footer">
-              <p>&copy; 2024 41Sounds. All rights reserved.</p>
+              <p>&copy; 2026 41Sounds. All rights reserved.</p>
             </div>
           </div>
         </body>

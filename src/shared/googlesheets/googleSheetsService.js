@@ -94,7 +94,8 @@ class GoogleSheetsService {
       });
 
       const sheets = response.data.sheets || [];
-      const sheetExists = sheets.some(sheet => sheet.properties.title === sheetName);
+      const sheet = sheets.find(sheet => sheet.properties.title === sheetName);
+      const sheetExists = Boolean(sheet);
 
       if (!sheetExists) {
         logger.info(`Sheet '${sheetName}' does not exist, creating it...`);
@@ -108,7 +109,7 @@ class GoogleSheetsService {
                     title: sheetName,
                     gridProperties: {
                       rowCount: 1000,
-                      columnCount: 15,
+                      columnCount: 20,
                     },
                   },
                 },
@@ -119,12 +120,61 @@ class GoogleSheetsService {
 
         // Add header row
         await this.addHeaderRow(sheetName, this.sheetHeaders[sheetName] || []);
+        return;
       }
+
+      await this.ensureSheetColumnCount(sheetName, 20);
     } catch (error) {
       logger.error('Error ensuring sheet exists', {
         error: error.message,
       });
       throw error;
+    }
+  }
+
+  async ensureSheetColumnCount(sheetName, targetColumnCount) {
+    try {
+      const response = await this.sheets.spreadsheets.get({
+        spreadsheetId: this.spreadsheetId,
+      });
+
+      const sheet = (response.data.sheets || []).find(sheet => sheet.properties.title === sheetName);
+      const existingColumnCount = sheet?.properties?.gridProperties?.columnCount || 0;
+
+      if (existingColumnCount >= targetColumnCount) {
+        return;
+      }
+
+      await this.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: this.spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              updateSheetProperties: {
+                properties: {
+                  sheetId: sheet.properties.sheetId,
+                  gridProperties: {
+                    columnCount: targetColumnCount,
+                  },
+                },
+                fields: 'gridProperties.columnCount',
+              },
+            },
+          ],
+        },
+      });
+
+      logger.info(`Expanded Google Sheet columns`, {
+        sheetName,
+        from: existingColumnCount,
+        to: targetColumnCount,
+      });
+    } catch (error) {
+      logger.error('Error expanding Google Sheet columns', {
+        error: error.message,
+        sheetName,
+        targetColumnCount,
+      });
     }
   }
 
@@ -184,6 +234,11 @@ class GoogleSheetsService {
         requestBody: {
           values: [updatedHeaders],
         },
+      });
+
+      logger.info('Appended missing header columns to Google Sheet', {
+        sheetName,
+        missingHeaders,
       });
     } catch (error) {
       logger.error('Error ensuring Google Sheet header columns', {

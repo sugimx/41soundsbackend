@@ -40,7 +40,7 @@ export class TicketDeliveryService {
       // Prepare ticket details for email
       const ticketDetails = {
         ticketNumber: ticket.ticketNumber,
-        eventName: ticket.eventId.eventName,
+        eventName: 'Stunts & Street',
         eventDate: ticket.eventId.eventDate,
         ticketType: ticket.ticketType,
         price: ticket.price,
@@ -124,11 +124,8 @@ export class TicketDeliveryService {
 
 Hi ${ticket.userId.fullName}!
 
-*Event:* ${ticket.eventId.eventName}
+*Event:* Stunts & Street
 *Date:* ${new Date(ticket.eventId.eventDate).toLocaleDateString()}
-*Ticket Type:* ${ticket.ticketType}
-*Ticket Number:* ${ticket.ticketNumber}
-*Price:* ₹${ticket.price}
 
 Please save your QR code which will be sent via email. Show it at the venue for entry.
 

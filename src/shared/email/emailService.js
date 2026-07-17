@@ -532,13 +532,20 @@ This is an automated email. Please do not reply to this email.
             </div>
 
             <div class="instructions">
-              <h3>📋 Important Instructions</h3>
-              <ul>
-                <li>Save this email and the QR code for reference</li>
-                <li>Arrive 15-30 minutes before the event starts</li>
-                <li>Present your QR code at the entrance</li>
-                <li>Keep your ticket safe and secure</li>
-              </ul>
+
+            <h3>💰 Refund Information</h3>
+
+            <ul>
+            <li>
+            If you attend Stunts & Street, the difference between your original ticket amount and ₹270 will be automatically refunded within 15 business days.
+            </li>
+
+            <li>
+            If you do not attend the event, your full original ticket amount will be refunded within 15 business days.
+            </li>
+
+            </ul>
+
             </div>
 
             <p><strong>Venue Details:</strong></p>
